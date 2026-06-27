@@ -32,6 +32,9 @@ frontend/.env.local
 # Docker
 .env
 
+# ML Models (downloaded at setup time)
+models/
+
 # Logs
 *.log
 logs/
