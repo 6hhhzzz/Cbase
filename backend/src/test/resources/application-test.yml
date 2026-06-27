@@ -1,0 +1,32 @@
+# 集成测试配置 — 禁用外部依赖，使用 TestContainers PostgreSQL
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16:///kes?stringtype=unspecified
+    username: kes
+    password: kes123
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  # 禁用测试中不需要的自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+# JWT 测试密钥
+jwt:
+  secret: test-jwt-secret-key-at-least-32-chars-long
+
+# MinIO 禁用（测试中不涉及文件操作）
+minio:
+  endpoint: http://localhost:9000
+  access-key: test
+  secret-key: testtest
+  bucket: test
+
+aiservice:
+  base-url: http://localhost:8000

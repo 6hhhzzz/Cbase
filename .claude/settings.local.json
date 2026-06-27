@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(curl -s -X POST http://localhost:8000/v1/chat -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(kill %1)"
+    ]
+  }
+}

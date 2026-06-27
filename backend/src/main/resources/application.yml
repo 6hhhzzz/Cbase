@@ -1,0 +1,73 @@
+# 企业知识助手 — Java Backend 配置
+# 对应 proposal 2.1 技术选型表
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kes-backend
+
+  # PostgreSQL 数据源
+  datasource:
+    url: jdbc:postgresql://${KES_DB_HOST:localhost}:${KES_DB_PORT:5432}/kes?stringtype=unspecified
+    username: ${KES_DB_USER:kes}
+    password: ${KES_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  # JPA
+  jpa:
+    hibernate:
+      ddl-auto: none  # v3: 使用 init-pgvector-v3.sql 管理 Schema，JPA 不操作 DDL
+    show-sql: false
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Jackson — 与 openapi.yaml 一致，使用 snake_case
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+  # Redis
+  data:
+    redis:
+      host: ${KES_REDIS_HOST:localhost}
+      port: ${KES_REDIS_PORT:6379}
+
+  # RabbitMQ
+  rabbitmq:
+    host: ${KES_MQ_HOST:localhost}
+    port: ${KES_MQ_PORT:5672}
+    username: ${KES_MQ_USER:kes}
+    password: ${KES_MQ_PASSWORD}
+
+  # 文件上传限制
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# 日志 — 抑制 Spring Data Redis 仓库扫描 INFO 噪声
+logging:
+  level:
+    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: WARN
+
+# JWT 配置
+jwt:
+  secret: ${KES_JWT_SECRET}
+  expiration: 3600000             # 旧 Access Token: 1 小时 (过渡期)
+  refresh-expiration: 604800000   # Refresh Token: 7 天
+  context-expiration: 1800000     # Context Access Token: 30 分钟
+
+# Python AI Service 地址
+aiservice:
+  base-url: ${AISERVICE_BASE_URL:http://localhost:8000}
+
+# MinIO 对象存储
+minio:
+  endpoint: http://${KES_MINIO_ENDPOINT:localhost:9000}
+  access-key: ${KES_MINIO_ROOT_USER:minioadmin}
+  secret-key: ${KES_MINIO_ROOT_PASSWORD}
+  bucket: ${KES_MINIO_BUCKET:kes-documents}

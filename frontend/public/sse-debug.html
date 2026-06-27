@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>SSE 诊断</title>
+<style>
+body{font-family:monospace;padding:20px}
+#log{background:#1a1a2e;color:#e0e0e0;padding:15px;border-radius:8px;white-space:pre-wrap;max-height:500px;overflow-y:auto}
+button{padding:10px 20px;font-size:16px;cursor:pointer;margin:10px 5px}
+.error{color:#ff6b6b}
+.token{color:#51cf66}
+</style></head>
+<body>
+<h3>SSE 流式诊断页面</h3>
+<button onclick="doTest()">🔍 测试 SSE 连接</button>
+<button onclick="doLogin()">🔑 登录</button>
+<span id="status" style="margin-left:15px;color:#888"></span>
+<div id="log"></div>
+
+<script>
+const log = document.getElementById('log');
+const status = document.getElementById('status');
+
+function L(msg, cls) {
+  const div = document.createElement('div');
+  div.className = cls || '';
+  div.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function doLogin() {
+  L('正在登录...');
+  const r = await fetch('/api/auth/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'testuser',password:'test123456'})
+  });
+  const d = await r.json();
+  localStorage.setItem('access_token', d.data.access_token);
+  L('✅ 登录成功: ' + d.data.access_token.substring(0, 20) + '...');
+}
+
+async function doTest() {
+  const token = localStorage.getItem('access_token');
+  if (!token) { L('❌ 请先登录', 'error'); return; }
+
+  L('🚀 发起 SSE 请求...');
+  status.textContent = '发送中...';
+  const start = Date.now();
+  let fullText = '', tokenCount = 0;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+token
+      },
+      body:JSON.stringify({query:'简单介绍你自己',conversation_id:''})
+    });
+
+    L('📡 响应状态: ' + resp.status + ' Content-Type: ' + resp.headers.get('content-type'));
+    status.textContent = '接收中...';
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+
+      buf += decoder.decode(value, {stream: true});
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const chunk = JSON.parse(line.substring(6));
+          if (chunk.token) {
+            tokenCount++;
+            fullText += chunk.token;
+            L(chunk.token, 'token');
+          }
+          if (chunk.done) {
+            L('✅ 完成! tokens='+tokenCount+' 耗时='+(Date.now()-start)+'ms');
+            status.textContent = '完成';
+            return;
+          }
+        } catch(e) {}
+      }
+    }
+    L('⚠️ 流结束但无 done 事件');
+  } catch(e) {
+    L('❌ 错误: ' + e.message, 'error');
+    status.textContent = '错误';
+  }
+}
+</script>
+</body>
+</html>

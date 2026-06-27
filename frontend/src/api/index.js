@@ -1,0 +1,444 @@
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+
+const api = axios.create({
+  baseURL: '/api',
+  timeout: 30000,
+})
+
+// ---- Token 刷新锁 ----
+let isRefreshing = false
+let refreshSubscribers = []
+
+function onTokenRefreshed(newToken) {
+  refreshSubscribers.forEach(cb => cb(newToken))
+  refreshSubscribers = []
+}
+
+function addRefreshSubscriber(cb) {
+  refreshSubscribers.push(cb)
+}
+
+function clearAuthAndRedirect() {
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user')
+  localStorage.removeItem('spaces')
+  localStorage.removeItem('active_space')
+  localStorage.removeItem('context_token')
+  window.location.href = '/login'
+}
+
+/** context_token 过期 → 回 Space 选择页重新签发 */
+function expireContextAndRedirect() {
+  localStorage.removeItem('context_token')
+  localStorage.removeItem('active_space')
+  window.location.href = '/spaces'
+}
+
+// 请求拦截器 — v3: 自动附加正确的 Token
+api.interceptors.request.use(config => {
+  // 如果调用方已经显式设置了 Authorization 头，保留不覆盖
+  if (config.headers.Authorization) {
+    return config
+  }
+
+  // 登录/注册/刷新不需要 Token
+  if (config.url === '/auth/login' || config.url === '/auth/register' || config.url === '/auth/refresh') {
+    return config
+  }
+
+  // switch-space 和 spaces 使用 Refresh Token
+  if (config.url === '/auth/switch-space' || config.url === '/auth/spaces') {
+    const rtoken = localStorage.getItem('refresh_token')
+    if (rtoken) {
+      config.headers.Authorization = `Bearer ${rtoken}`
+    }
+    return config
+  }
+
+  // 其余所有 /auth/* 和 /api/* 请求：优先 Context Token，fallback Refresh Token
+  if (config.url.startsWith('/auth/') || config.url.startsWith('/')) {
+    const ctoken = localStorage.getItem('context_token')
+    if (ctoken) {
+      config.headers.Authorization = `Bearer ${ctoken}`
+    } else {
+      const rtoken = localStorage.getItem('refresh_token')
+      if (rtoken) {
+        config.headers.Authorization = `Bearer ${rtoken}`
+      }
+    }
+  }
+  return config
+})
+
+// 错误码 → 中文消息映射（优先使用服务端返回的 message，此为兜底）
+const ERROR_CODE_MESSAGES = {
+  AUTH_TOKEN_EXPIRED: '登录已过期，请重新登录',
+  AUTH_NOT_LOGGED_IN: '未登录或 Token 已过期',
+  AUTH_BAD_CREDENTIALS: '用户名或密码错误',
+  SPACE_ACCESS_DENIED: '无权访问该空间',
+  KB_ACCESS_DENIED: '无权访问该知识库',
+  DOC_NOT_FOUND: '文档不存在',
+  PARAM_MISSING: '缺少必填参数',
+  PARAM_INVALID: '参数无效',
+  INTERNAL_ERROR: '服务器内部错误',
+}
+
+// 响应拦截器
+api.interceptors.response.use(
+  response => {
+    const body = response.data
+    // 兼容旧格式 (code != 0) 和新格式 (error_code 非空)
+    if ((body.code !== 0 && body.code !== undefined) || body.error_code) {
+      const msg = body.message || ERROR_CODE_MESSAGES[body.error_code] || '请求失败'
+      ElMessage.error(msg)
+      return Promise.reject(new Error(msg))
+    }
+    return response
+  },
+  async error => {
+    const { config, response } = error
+    const status = response?.status
+    const errorCode = response?.data?.error_code
+
+    // 根据 error_code 精确处理（优先级高于 HTTP status）
+    if (errorCode === 'AUTH_TOKEN_EXPIRED' || errorCode === 'AUTH_NOT_LOGGED_IN') {
+      // Context token 过期 → 清理并跳回 Space 选择页
+      if (errorCode !== 'AUTH_TOKEN_EXPIRED') {
+        expireContextAndRedirect()
+      } else {
+        clearAuthAndRedirect()
+      }
+      return Promise.reject(error)
+    }
+
+    if (status === 401 && config) {
+      const ctoken = localStorage.getItem('context_token')
+      if (ctoken && config.headers?.Authorization === `Bearer ${ctoken}`) {
+        expireContextAndRedirect()
+        return Promise.reject(error)
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          addRefreshSubscriber(() => resolve(api(config)))
+        })
+      }
+
+      if (config.url === '/auth/refresh') {
+        clearAuthAndRedirect()
+        return Promise.reject(error)
+      }
+
+      isRefreshing = true
+      const rt = localStorage.getItem('refresh_token')
+      if (!rt) {
+        clearAuthAndRedirect()
+        return Promise.reject(error)
+      }
+
+      try {
+        const res = await axios.post('/api/auth/refresh', { refresh_token: rt })
+        if (res.data?.code === 0) {
+          const { refresh_token } = res.data.data
+          localStorage.setItem('refresh_token', refresh_token)
+          onTokenRefreshed(refresh_token)
+          return api(config)
+        }
+        clearAuthAndRedirect()
+        return Promise.reject(error)
+      } catch {
+        clearAuthAndRedirect()
+        return Promise.reject(error)
+      } finally {
+        isRefreshing = false
+      }
+    }
+
+    if (errorCode === 'SPACE_ACCESS_DENIED' || errorCode === 'KB_ACCESS_DENIED') {
+      ElMessage.warning(response?.data?.message || ERROR_CODE_MESSAGES[errorCode])
+    } else if (status === 403) {
+      ElMessage.warning(response?.data?.message || '权限不足')
+    } else if (status === 401) {
+      clearAuthAndRedirect()
+    } else {
+      const msg = response?.data?.message || ERROR_CODE_MESSAGES[errorCode] || '网络错误'
+      ElMessage.error(msg)
+    }
+    return Promise.reject(error)
+  }
+)
+
+// ---- Auth API ----
+
+export const authApi = {
+  login: (data) => api.post('/auth/login', data),
+  register: (data) => api.post('/auth/register', data),
+  refresh: (data) => api.post('/auth/refresh', data),
+  /** v3: 获取用户 Space 列表 */
+  getSpaces: (refreshToken) => api.get('/auth/spaces', {
+    headers: { Authorization: `Bearer ${refreshToken}` }
+  }),
+  /** v3: 切换到指定 Space */
+  switchSpace: (spaceId, refreshToken) => api.post('/auth/switch-space',
+    { space_id: spaceId },
+    { headers: { Authorization: `Bearer ${refreshToken}` } }
+  ),
+  /** v3: 获取当前 Space 下可访问的 KB 列表 */
+  getAccessibleKBs: () => api.get('/auth/accessible-kbs'),
+  /** 修改密码 */
+  changePassword: (data) => api.put('/auth/password', data),
+}
+
+// ---- Documents API ----
+
+export const documentsApi = {
+  list: (params) => api.get('/documents', { params }),
+  upload: (formData) => api.post('/documents', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id, formData) => api.put(`/documents/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  get: (id) => api.get(`/documents/${id}`),
+  delete: (id) => api.delete(`/documents/${id}`),
+  /** 更新文档元数据（生效日期、失效日期、版本、权限继承） */
+  updateMetadata: (id, data) => api.put(`/documents/${id}/metadata`, data),
+  /** 从回收站恢复文档（管理员） */
+  restore: (id) => api.post(`/documents/${id}/restore`),
+  /** 永久删除文档（管理员） */
+  permanentDelete: (id) => api.delete(`/documents/${id}/permanent`),
+  // v2 审批
+  getApprovals: (params) => api.get('/documents/approvals', { params }),
+  approve: (approvalId) => api.post(`/documents/approvals/${approvalId}/approve`),
+  reject: (approvalId, comment) => api.post(`/documents/approvals/${approvalId}/reject`, { comment }),
+  /**
+   * 生成文件查看 URL（带 token 查询参数，兼容 window.open() 新标签页打开）。
+   *
+   * ⚠️ 安全待办 (Phase 2): Token 出现在 URL query 参数中会泄漏到浏览器历史和服务器日志。
+   * 建议后端实现短期签名 URL 机制：
+   *   1. POST /api/documents/{id}/file-token → 返回一次性短期 token
+   *   2. GET /api/documents/{id}/file?sign={short-lived-signature} → 验证签名后返回文件
+   * 过渡方案：使用 Authorization header 的 fetch 方式替代 window.open。
+   *
+   * @param {string} docId - 文档 ID
+   * @returns {string} 完整 URL
+   */
+  viewUrl: (docId) => {
+    const token = localStorage.getItem('context_token')
+    return `/api/documents/${docId}/file?token=${encodeURIComponent(token)}`
+  },
+}
+
+// ---- Chat API (SSE) ----
+
+const SSE_FIRST_TOKEN_TIMEOUT = 60000
+const SSE_TOTAL_TIMEOUT = 120000
+
+export function chatSSE(query, conversationId, excludedKbIds, onToken, onDone, onError) {
+  const token = localStorage.getItem('context_token') || localStorage.getItem('refresh_token') || ''
+  const abortController = new AbortController()
+
+  let firstTokenReceived = false
+  let firstTokenTimer = null
+  let totalTimer = null
+
+  const clearTimers = () => {
+    if (firstTokenTimer) { clearTimeout(firstTokenTimer); firstTokenTimer = null }
+    if (totalTimer) { clearTimeout(totalTimer); totalTimer = null }
+  }
+
+  firstTokenTimer = setTimeout(() => {
+    if (!firstTokenReceived) {
+      abortController.abort()
+      clearTimers()
+      onError(new Error('AI 服务响应超时'))
+    }
+  }, SSE_FIRST_TOKEN_TIMEOUT)
+
+  totalTimer = setTimeout(() => {
+    abortController.abort()
+    clearTimers()
+    onError(new Error('AI 服务处理超时'))
+  }, SSE_TOTAL_TIMEOUT)
+
+  const body = { query, conversation_id: conversationId || '', excluded_kb_ids: excludedKbIds || [] }
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+    signal: abortController.signal,
+  }).then(async response => {
+    if (!response.ok) {
+      clearTimers()
+      onError(new Error(`HTTP ${response.status}`))
+      return
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let streamCompleted = false
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      let chunkText = decoder.decode(value, { stream: true })
+      chunkText = chunkText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      buffer += chunkText
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+      for (const raw of events) {
+        if (!raw.trim() || streamCompleted) continue
+        const lines = raw.split('\n')
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          try {
+            const chunk = JSON.parse(trimmed.substring(5))
+            if (!firstTokenReceived && chunk.token) {
+              firstTokenReceived = true
+              if (firstTokenTimer) { clearTimeout(firstTokenTimer); firstTokenTimer = null }
+            }
+            onToken(chunk)
+            if (chunk.done) {
+              streamCompleted = true
+              clearTimers()
+              onDone(chunk)
+            }
+          } catch (e) { /* skip parse errors */ }
+        }
+      }
+    }
+    if (!streamCompleted) {
+      clearTimers()
+      onDone({ done: true, sources: [] })
+    }
+  }).catch(err => {
+    clearTimers()
+    if (err.name === 'AbortError') return
+    onError(err)
+  })
+
+  return () => { clearTimers(); abortController.abort() }
+}
+
+// ---- 用户搜索 ----
+
+export const userApi = {
+  /** 按用户名前缀搜索用户 */
+  search: (query) => api.get('/auth/users/search', { params: { q: query } }),
+}
+
+// ---- Conversations API ----
+
+export const conversationsApi = {
+  list: (params) => api.get('/conversations', { params }),
+  messages: (convId, params) => api.get(`/conversations/${convId}/messages`, { params }),
+  delete: (convId) => api.delete(`/conversations/${convId}`),
+}
+
+// ---- Space 管理 API ----
+
+export const spaceApi = {
+  create: (name, typeLabel, description) => api.post('/spaces', { name, type_label: typeLabel, description }),
+  getMembers: (spaceId) => api.get(`/spaces/${spaceId}/members`),  // v4: 返回 {admins:[], groups:[]}
+  archive: (spaceId) => api.post(`/spaces/${spaceId}/archive`),
+  // v4: Space 管理员
+  getAdmins: (spaceId) => api.get(`/spaces/${spaceId}/admins`),
+  addAdmin: (spaceId, userId, role) => api.post(`/spaces/${spaceId}/admins`, { user_id: userId, role }),
+  removeAdmin: (spaceId, userId) => api.delete(`/spaces/${spaceId}/admins/${userId}`),
+  transferOwnership: (spaceId, userId) => api.post(`/spaces/${spaceId}/transfer-ownership`, { user_id: userId }),
+  // v4: Space 准入组
+  getGroups: (spaceId) => api.get(`/spaces/${spaceId}/groups`),
+  addGroup: (spaceId, groupId) => api.post(`/spaces/${spaceId}/groups`, { group_id: groupId }),
+  removeGroup: (spaceId, groupId) => api.delete(`/spaces/${spaceId}/groups/${groupId}`),
+  // v4: ACE 矩阵
+  getAces: (spaceId, resourceType = 'kb') => api.get(`/spaces/${spaceId}/aces`, { params: { resource_type: resourceType } }),
+  createAce: (spaceId, data) => api.post(`/spaces/${spaceId}/aces`, data),
+  updateAce: (spaceId, aceId, data) => api.put(`/spaces/${spaceId}/aces/${aceId}`, data),
+  deleteAce: (spaceId, aceId) => api.delete(`/spaces/${spaceId}/aces/${aceId}`),
+  // KB
+  listKbs: (spaceId) => api.get(`/spaces/${spaceId}/kbs`),
+  createKb: (spaceId, name, description, visibility) => api.post(`/spaces/${spaceId}/kbs`, { name, description, visibility }),
+  updateKb: (spaceId, kbId, name, visibility) => api.put(`/spaces/${spaceId}/kbs/${kbId}`, { name, visibility }),
+  deleteKb: (spaceId, kbId, permanent = false) => api.delete(`/spaces/${spaceId}/kbs/${kbId}`, { params: { permanent } }),
+  restoreKb: (spaceId, kbId) => api.post(`/spaces/${spaceId}/kbs/${kbId}/restore`),
+  getTrash: (spaceId) => api.get(`/spaces/${spaceId}/trash`),
+  // 审计日志
+  getAuditLogs: (spaceId, page = 0, size = 20) => api.get(`/spaces/${spaceId}/audit-logs`, { params: { page, size } }),
+}
+
+// ---- 全局用户组 API (v4 ACE) ----
+
+export const groupsApi = {
+  list: (params) => api.get('/groups', { params }),
+  get: (groupId) => api.get(`/groups/${groupId}`),
+  create: (data) => api.post('/groups', data),
+  update: (groupId, data) => api.put(`/groups/${groupId}`, data),
+  delete: (groupId) => api.delete(`/groups/${groupId}`),
+  getMembers: (groupId) => api.get(`/groups/${groupId}/members`),
+  addMember: (groupId, userId) => api.post(`/groups/${groupId}/members`, { user_id: userId }),
+  removeMember: (groupId, userId) => api.delete(`/groups/${groupId}/members/${userId}`),
+  // v4: Group 管理员
+  getAdmins: (groupId) => api.get(`/groups/${groupId}/admins`),
+  addAdmin: (groupId, userId, role) => api.post(`/groups/${groupId}/admins`, { user_id: userId, role }),
+  removeAdmin: (groupId, userId) => api.delete(`/groups/${groupId}/admins/${userId}`),
+}
+
+// ---- 角色管理 API (v4 ACE) ----
+
+export const rolesApi = {
+  list: () => api.get('/roles'),
+  get: (roleId) => api.get(`/roles/${roleId}`),
+  create: (data) => api.post('/roles', data),
+  update: (roleId, data) => api.put(`/roles/${roleId}`, data),
+  delete: (roleId) => api.delete(`/roles/${roleId}`),
+}
+
+// ---- 全局管理员 API ----
+
+export const adminApi = {
+  getAllSpaces: () => api.get('/admin/spaces'),
+  archiveSpace: (spaceId) => api.post(`/admin/spaces/${spaceId}/archive`),
+  deleteSpace: (spaceId) => api.delete(`/admin/spaces/${spaceId}`),
+  restoreSpace: (spaceId) => api.post(`/admin/spaces/${spaceId}/restore`),
+  // v4: 用户管理
+  listUsers: () => api.get('/admin/users'),
+  setGlobalAdmin: (userId, isGlobalAdmin) => api.put(`/admin/users/${userId}/global-admin`, { is_global_admin: isGlobalAdmin }),
+  // v7: 用户管理增强
+  createUser: (data) => api.post('/admin/users', data),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  setUserStatus: (userId, status) => api.put(`/admin/users/${userId}/status`, { status }),
+  batchImportUsers: (formData) => api.post('/admin/users/batch', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+}
+
+// ---- 模型配置管理 API (v6) ----
+
+export const modelAdminApi = {
+  // Provider
+  listProviders: () => api.get('/admin/models/providers'),
+  createProvider: (data) => api.post('/admin/models/providers', data),
+  updateProvider: (id, data) => api.put(`/admin/models/providers/${id}`, data),
+  deleteProvider: (id) => api.delete(`/admin/models/providers/${id}`),
+  // Model Config
+  listConfigs: (providerId) => api.get('/admin/models/configs', { params: { provider_id: providerId } }),
+  createConfig: (data) => api.post('/admin/models/configs', data),
+  updateConfig: (id, data) => api.put(`/admin/models/configs/${id}`, data),
+  deleteConfig: (id) => api.delete(`/admin/models/configs/${id}`),
+  // Assignment
+  getAssignments: () => api.get('/admin/models/assignments'),
+  updateAssignments: (data) => api.put('/admin/models/assignments', data),
+  // 发现 + 测试
+  discover: (providerId) => api.post(`/admin/models/discover/${providerId}`),
+  test: (providerId) => api.post(`/admin/models/test/${providerId}`),
+  // 配置版本
+  getVersion: () => api.get('/admin/models/version'),
+}
+
+export default api

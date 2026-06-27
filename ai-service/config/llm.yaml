@@ -1,0 +1,28 @@
+# LLM 和 Embedding 的供应商配置
+# 环境变量 ${VAR_NAME} 在加载时自动替换为实际值
+#
+# 支持的 type 值:
+#   openai_compatible — DashScope / vLLM / DeepSeek 等兼容接口
+#
+# 切换供应商只需修改此文件，业务代码不受影响
+
+llm:
+  type: openai_compatible
+  api_key: ${DASHSCOPE_API_KEY}
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  default_params:
+    temperature: 0.3
+    max_tokens: 2048
+    # HTTP 超时配置（单位：秒），仅 timeout 不被透传给 LLM API
+    timeout:
+      connect: 10.0    # 连接超时
+      read: 60.0       # 流式读取单次超时
+      total: 120.0     # 总超时
+
+embedding:
+  type: openai_compatible
+  api_key: ${DASHSCOPE_API_KEY}
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: text-embedding-v3
+  dimension: 1024
