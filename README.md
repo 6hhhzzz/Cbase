@@ -7,6 +7,8 @@
     <img src="https://img.shields.io/badge/Vue-3-green?logo=vuedotjs" alt="Vue 3">
     <img src="https://img.shields.io/badge/PostgreSQL-16%2Bpgvector-blue?logo=postgresql" alt="PostgreSQL">
     <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker" alt="Docker">
+    <img src="https://img.shields.io/badge/tests-96%20passed-brightgreen" alt="96 tests">
+    <img src="https://github.com/6hhhzzz/cbase/actions/workflows/ci.yml/badge.svg" alt="CI">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   </p>
 </p>
