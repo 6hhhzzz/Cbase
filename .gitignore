@@ -39,3 +39,11 @@ models/
 # Logs
 *.log
 logs/
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.nyc_output/

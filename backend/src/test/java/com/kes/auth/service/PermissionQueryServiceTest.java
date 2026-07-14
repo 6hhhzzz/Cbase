@@ -4,6 +4,7 @@ import com.kes.auth.model.AccessControlEntry;
 import com.kes.auth.model.KnowledgeBase;
 import com.kes.auth.repository.AceRepository;
 import com.kes.auth.repository.KnowledgeBaseRepository;
+import com.kes.auth.repository.SpaceRepository;
 import com.kes.document.service.DocumentPermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ class PermissionQueryServiceTest {
 
     @Mock private KnowledgeBaseRepository kbRepo;
     @Mock private AceRepository aceRepo;
+    @Mock private SpaceRepository spaceRepo;
     @Mock private KbPermissionCache permissionCache;
     @Mock private PermissionService permService;
     @Mock private DocumentPermissionService docPermissionService;
@@ -44,7 +46,7 @@ class PermissionQueryServiceTest {
     @BeforeEach
     void setUp() {
         queryService = new PermissionQueryService(
-            kbRepo, aceRepo, permissionCache, permService, docPermissionService);
+            kbRepo, aceRepo, spaceRepo, permissionCache, permService, docPermissionService);
     }
 
     // ================================================================
