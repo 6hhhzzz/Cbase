@@ -58,6 +58,7 @@ class PermissionServiceIT extends AbstractIntegrationTest {
         group = new UserGroup();
         group.setId(UUID.randomUUID().toString());
         group.setName("测试组");
+        group.setCreatedBy(admin.getId());
         groupRepo.save(group);
         groupMemberRepo.save(new UserGroupMember(UUID.randomUUID().toString(), group.getId(), member.getId()));
     }

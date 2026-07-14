@@ -40,7 +40,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     @Order(1)
     void fullAuthFlow() throws Exception {
         // 1. 注册
-        var registerBody = Map.of("username", "testuser", "password", "password123", "displayName", "测试用户");
+        var registerBody = Map.of("username", "testuser", "password", "password123", "display_name", "测试用户");
         var registerRes = mvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerBody)))
@@ -99,7 +99,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     @Test
     void loginWithWrongPassword_returnsError() throws Exception {
         // 先注册
-        var registerBody = Map.of("username", "wrongpw", "password", "correct", "displayName", "用户");
+        var registerBody = Map.of("username", "wrongpw", "password", "correctpw", "display_name", "用户");
         mvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerBody)))
@@ -116,7 +116,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
 
     @Test
     void registerDuplicateUsername_returnsError() throws Exception {
-        var body = Map.of("username", "dup", "password", "pass123456", "displayName", "重复");
+        var body = Map.of("username", "dup", "password", "pass123456", "display_name", "重复");
         mvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
