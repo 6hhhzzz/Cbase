@@ -5,8 +5,6 @@
     - ts_query: 分词后的查询
     - ts_rank: BM25 类似的排名函数
     - GIN 索引：加速全文搜索
-
-不需要引入 Elasticsearch，依赖 PostgreSQL 内置能力。
 """
 
 import asyncio
@@ -24,6 +22,8 @@ class SparseRetriever:
 
     使用 tsvector + ts_query 实现类似 BM25 的效果。
     对专有名词、产品型号、内部代号等精确匹配极其有效。
+
+    v12: 新增 search_splade() — SPLADE 神经词扩展检索。
     """
 
     def __init__(self, pool: asyncpg.Pool):
@@ -72,6 +72,7 @@ class SparseRetriever:
 
             rows = await conn.fetch("""
                 SELECT id, chunk_text, content_with_weight, source_file,
+                       doc_effective_date, doc_expiry_date, doc_version, created_at,
                        ts_rank(fts, $1::tsquery) AS score
                 FROM knowledge_chunks
                 WHERE kb_id = ANY($2)
@@ -82,17 +83,34 @@ class SparseRetriever:
                 LIMIT $3
             """, ts_query, kb_ids, top_k, excluded_doc_ids)
 
+        from typing import Any
+        from datetime import date
+
+        today = date.today().isoformat()
         chunks = []
         for row in rows:
+            meta: dict[str, Any] = {"retriever": "sparse"}
+            eff_date = row["doc_effective_date"]
+            exp_date = row["doc_expiry_date"]
+            if eff_date:
+                meta["doc_effective_date"] = str(eff_date)
+            if exp_date:
+                meta["doc_expiry_date"] = str(exp_date)
+                meta["is_expired"] = str(exp_date) < today
+            if row["doc_version"]:
+                meta["doc_version"] = row["doc_version"]
+            if row["created_at"]:
+                meta["chunk_indexed_at"] = row["created_at"]
+
             chunks.append(ScoredChunk(
                 chunk_id=row["id"],
                 content=row["content_with_weight"] or row["chunk_text"],
                 score=float(row["score"]),
                 source_file=row["source_file"] or "",
-                metadata={"retriever": "sparse"},
+                metadata=meta,
             ))
 
-        logger.debug(f"SparseRetriever: query='{query[:50]}...', keywords={keywords}, hits={len(chunks)}")
+        logger.debug(f"SparseRetriever(BM25): query='{query[:50]}...', keywords={keywords}, hits={len(chunks)}")
         return chunks
 
     async def ensure_fts_column(self) -> None:

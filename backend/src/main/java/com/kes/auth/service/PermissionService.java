@@ -282,15 +282,23 @@ public class PermissionService {
     /**
      * 获取用户在当前 Space 中的最高角色。
      * 返回 "owner" | "admin" | "member" | null（非成员）。
+     *
+     * <p>判定顺序：space_admins 显式角色 → 全局管理员回退为 admin →
+     * space_groups 成员身份 → null。
+     * 全局管理员不再无条件返回 owner，仅在 space_admins 有显式 owner
+     * 记录时才返回 owner。
      */
     public String getUserSpaceRole(String spaceId, String userId) {
-        if (isGlobalAdmin(userId)) return "owner";
-
+        // 1. 优先使用 space_admins 中的显式角色
         Optional<SpaceAdmin> admin = spaceAdminRepo.findBySpaceIdAndUserId(spaceId, userId);
         if (admin.isPresent()) {
             return admin.get().getRole();  // owner 或 admin
         }
 
+        // 2. 全局管理员回退为 admin（拥有完全权限但不是 owner）
+        if (isGlobalAdmin(userId)) return "admin";
+
+        // 3. 通过 space_groups 的普通成员
         if (!getUserSpaceGroups(spaceId, userId).isEmpty()) {
             return "member";
         }
@@ -306,7 +314,7 @@ public class PermissionService {
     public String getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
-            throw BusinessException.forbidden("未登录或 Token 已过期");
+            throw new BusinessException(ErrorCode.SPACE_ACCESS_DENIED,"未登录或 Token 已过期");
         }
         return auth.getName();
     }
@@ -315,12 +323,12 @@ public class PermissionService {
     public String getCurrentSpaceId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getCredentials() == null) {
-            throw BusinessException.forbidden("未登录或缺少上下文 Token");
+            throw new BusinessException(ErrorCode.SPACE_ACCESS_DENIED,"未登录或缺少上下文 Token");
         }
         String token = (String) auth.getCredentials();
         String spaceId = jwtUtil.extractSpaceId(token);
         if (spaceId == null) {
-            throw BusinessException.forbidden("无法从 Token 中提取 Space 上下文");
+            throw new BusinessException(ErrorCode.SPACE_ACCESS_DENIED,"无法从 Token 中提取 Space 上下文");
         }
         return spaceId;
     }

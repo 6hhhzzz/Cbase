@@ -1,8 +1,8 @@
 """ChunkOrchestrator — 分块编排器。
 
 根据文档类型选择分块策略：
+    - 默认 → ParentChildChunker（两级分块，检索用 child + 回答用 parent）
     - 结构化文档（有标题层级）→ TitleChunker
-    - 非结构化文档 → TokenChunker
     - 所有文档 → ContextEnricher（表格/图片上下文注入）
 
 用法:
@@ -17,6 +17,7 @@ from .base import BaseChunker
 from .models import Chunk, ChunkRelation
 from .token_chunker import TokenChunker
 from .title_chunker import TitleChunker
+from .parent_child_chunker import ParentChildChunker
 from .merge import merge_chunks
 from .enrich import ContextEnricher
 
@@ -30,10 +31,12 @@ class ChunkOrchestrator:
         self,
         token_chunker: TokenChunker | None = None,
         title_chunker: TitleChunker | None = None,
+        parent_child_chunker: ParentChildChunker | None = None,
         enricher: ContextEnricher | None = None,
     ):
         self._token_chunker = token_chunker or TokenChunker()
         self._title_chunker = title_chunker or TitleChunker()
+        self._parent_child_chunker = parent_child_chunker or ParentChildChunker()
         self._enricher = enricher or ContextEnricher()
 
     async def chunk(
@@ -46,9 +49,10 @@ class ChunkOrchestrator:
         Args:
             doc: 解析后的结构化文档
             strategy: 分块策略
-                - "auto": 根据文档标题数量自动选择
+                - "auto": 默认 ParentChildChunker（两级分块）
                 - "token": 强制 TokenChunker
                 - "title": 强制 TitleChunker
+                - "parent_child": 强制 ParentChildChunker
 
         Returns:
             (chunks, relations)
@@ -62,7 +66,7 @@ class ChunkOrchestrator:
         # 注入表格/图片上下文
         chunks = self._enricher.enrich(chunks, relations)
 
-        # 合并过短 chunk（naive_merge）
+        # 合并过短 chunk（保留 parent 信息）
         chunks, relations = merge_chunks(chunks, relations)
 
         # 为每个 chunk 标记 doc_id（用于数据库索引）
@@ -85,15 +89,10 @@ class ChunkOrchestrator:
             return self._token_chunker
         if strategy == "title":
             return self._title_chunker
+        if strategy == "parent_child":
+            return self._parent_child_chunker
 
-        # auto: 根据标题数量决定
-        title_count = sum(
-            1 for b in doc.text_blocks
-            if b.layout_type == "title" and b.level is not None
-        )
-        if title_count >= 3:
-            logger.info(f"检测到 {title_count} 个标题，使用 TitleChunker")
-            return self._title_chunker
-        else:
-            logger.info(f"标题数 {title_count} < 3，使用 TokenChunker")
-            return self._token_chunker
+        # auto: 默认使用 ParentChildChunker（两级分块）
+        # TitleChunker 保留给显式 strategy="title"
+        logger.info(f"auto 策略: 使用 ParentChildChunker")
+        return self._parent_child_chunker

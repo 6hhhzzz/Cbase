@@ -11,9 +11,6 @@ import java.util.List;
 
 public interface DocumentMetaRepository extends JpaRepository<DocumentMeta, String> {
 
-    /** v3: 按 KB 查询 */
-    Page<DocumentMeta> findByKbId(String kbId, Pageable pageable);
-
     /** v3.1: 按 KB 查询所有文档（不分页，级联/永久删除用） */
     List<DocumentMeta> findAllByKbId(String kbId);
 
@@ -29,11 +26,10 @@ public interface DocumentMetaRepository extends JpaRepository<DocumentMeta, Stri
     /** v3.1: 按一批 KB + 文档状态查询（回收站用） */
     List<DocumentMeta> findByKbIdInAndStatus(List<String> kbIds, String status);
 
-    /** v4: 获取一批 KB 中所有 active 文档的 ID（文档级权限解析用） */
-    @Query("SELECT d.id FROM DocumentMeta d WHERE d.kbId IN :kbIds AND d.status = 'active'")
-    List<String> findDocIdsByKbIdIn(@Param("kbIds") List<String> kbIds);
-
     /** v4: 获取一批 KB 中 inherit_permissions = false 的文档 */
     @Query("SELECT d FROM DocumentMeta d WHERE d.kbId IN :kbIds AND d.status = 'active' AND d.inheritPermissions = false")
     List<DocumentMeta> findCustomPermissionDocs(@Param("kbIds") List<String> kbIds);
+
+    /** v4: 按 Space + 状态查询所有文档 */
+    Page<DocumentMeta> findBySpaceIdAndStatus(String spaceId, String status, Pageable pageable);
 }

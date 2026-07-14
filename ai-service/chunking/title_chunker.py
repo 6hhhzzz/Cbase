@@ -75,10 +75,10 @@ def _build_sections(doc: ParsedDocument) -> list[_Section]:
     stack: list[_Section] = []  # 按层级栈
 
     for block in doc.blocks:
-        if isinstance(block, TextBlock) and block.layout_type == "title" and block.level:
+        if isinstance(block, TextBlock) and block.layout_type == "title":
             section = _Section(
                 title=block.text,
-                level=block.level,
+                level=block.level or 1,  # 无 level 时默认 1，由 LlmMetadataEnrichStep 后续修正
                 page_num=block.page_num,
             )
 

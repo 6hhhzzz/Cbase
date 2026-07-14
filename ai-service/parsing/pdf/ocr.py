@@ -1,19 +1,21 @@
-"""PaddleOCR ONNX 封装 — Phase 1b-full。
-
-基于 ONNX Runtime 的文本检测（DBNet）和识别（CRNN）。
-参考 RAGFlow deepdoc/vision/ocr.py 的架构，重新实现。
+"""OCR 引擎 — 云端 API（优先）+ 本地 ONNX PaddleOCR（降级）。
 
 数据流:
-    图片 (np.ndarray) → TextDetector(det.onnx) → 文本区域坐标 → crop → TextRecognizer(rec.onnx) → 文本
+    图片 (np.ndarray)
+      → APIOCR (DashScope OCR) — 优先
+      → TextDetector(det.onnx) → TextRecognizer(rec.onnx) — 降级
 """
 
 import asyncio
+import base64
 import math
 import os
 from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 from pathlib import Path
 
 import cv2
+import httpx
 import numpy as np
 
 from common import get_logger
@@ -32,6 +34,109 @@ _UNCLIP_RATIO = 2.0
 
 # 识别模型参数
 _REC_IMG_SHAPE = (48, 320)
+
+
+class APIOCR:
+    """云端 OCR API 封装（DashScope OCR 等）。
+
+    与 OcrEngine 同接口，可作为 drop-in replacement。
+
+    用法::
+
+        ocr = APIOCR(api_key="sk-xxx", api_path="/api/v1/services/ocr/ocr-recognition",
+                     base_url="https://dashscope.aliyuncs.com")
+        if ocr.load():
+            boxes = ocr.detect_and_recognize(page_image)
+    """
+
+    def __init__(self, api_key: str, base_url: str = "",
+                 api_path: str = "", model_name: str = "ocr-recognition"):
+        self._api_key = api_key
+        self._model_name = model_name
+        self._url = f"{base_url.rstrip('/')}{api_path}" if (base_url and api_path) else ""
+        self._loaded = bool(self._api_key and self._url)
+
+    def load(self) -> bool:
+        return self._loaded
+
+    def detect_and_recognize(self, image: np.ndarray) -> list[dict]:
+        """对单页图片执行云端 OCR。
+
+        Args:
+            image: RGB 图片 (H, W, 3)
+
+        Returns:
+            [{"text": str, "bbox": (x0,y0,x1,y1), "score": float}, ...]
+        """
+        if not self._loaded:
+            return []
+
+        try:
+            # 编码为 JPEG base64
+            _, buf = cv2.imencode(".jpg", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+            img_b64 = base64.b64encode(buf).decode("utf-8")
+
+            # DashScope OCR API 格式
+            payload = {
+                "model": self._model_name,
+                "input": {"image": f"data:image/jpeg;base64,{img_b64}"},
+            }
+
+            # 同步 HTTP 调用（ETL 管道中 OCR 在 executor 线程中运行）
+            import requests
+            resp = requests.post(
+                self._url,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=30,
+            )
+            if resp.status_code != 200:
+                logger.warning(f"OCR API 返回 {resp.status_code}: {resp.text[:200]}")
+                return []
+
+            data = resp.json()
+            return self._parse_response(data)
+
+        except Exception as e:
+            logger.warning(f"OCR API 调用失败: {e}")
+            return []
+
+    @staticmethod
+    def _parse_response(data: dict) -> list[dict]:
+        """解析 DashScope OCR 响应为标准格式。
+
+        DashScope OCR 返回格式:
+          {"output": {"texts": [
+            {"content": "识别文本", "pos": {"x": ..., "y": ..., "width": ..., "height": ...}, "confidence": 0.98},
+            ...
+          ]}}
+        """
+        results = []
+        texts = data.get("output", {}).get("texts", [])
+        for t in texts:
+            content = t.get("content", "")
+            if not content:
+                continue
+            # pos 可能是 list 坐标或 x/y/width/height
+            pos = t.get("pos", {})
+            if pos:
+                x0 = float(pos.get("x", 0)) if isinstance(pos, dict) else float(pos[0])
+                y0 = float(pos.get("y", 0)) if isinstance(pos, dict) else float(pos[1])
+                x1 = x0 + float(pos.get("width", 0)) if isinstance(pos, dict) else float(pos[2]) - x0
+                y1 = y0 + float(pos.get("height", 0)) if isinstance(pos, dict) else float(pos[3]) - y0
+            else:
+                x0, y0, x1, y1 = 0, 0, 0, 0
+
+            results.append({
+                "text": content,
+                "bbox": (x0, y0, x1, y1),
+                "score": float(t.get("confidence", 0.95)),
+            })
+
+        return results
 
 
 class OcrEngine:

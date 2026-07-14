@@ -123,10 +123,6 @@ public class JwtUtil {
         return parseToken(token).getSubject();
     }
 
-    public String extractUsername(String token) {
-        return parseToken(token).get("username", String.class);
-    }
-
     public boolean isContextToken(String token) {
         return "context".equals(parseToken(token).get("type", String.class));
     }

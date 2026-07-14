@@ -12,6 +12,7 @@
 """
 
 from common import get_logger
+from typing import Any
 from llm.base import BaseLLM
 from llm import BaseEmbedding
 from .hybrid_search import HybridSearch
@@ -19,6 +20,7 @@ from .reranker import Reranker
 from .query_rewriter import QueryRewriter
 from .intent_router import IntentRouter
 from .citation import CitationInserter
+from .routing import is_chitchat as _is_chitchat
 from .models import RetrievalContext, ScoredChunk, RewriteResult, IntentResult
 
 logger = get_logger(__name__)
@@ -26,6 +28,28 @@ logger = get_logger(__name__)
 # Token 预算保护
 PARENT_MAX_TOKENS = 1000
 CHAPTER_BUDGET_TOKENS = 800
+
+# ═══════════════════════════════════════════════════════════
+# HyDE 触发判定 — 列举/抽象查询术语桥接
+# ═══════════════════════════════════════════════════════════
+
+_LIST_PATTERNS = ["包含哪些", "包含哪几", "有哪些", "有哪几", "列出", "列举",
+                  "几个方面", "几个层次", "哪几个", "哪六", "哪三", "哪五",
+                  "分别是", "分别是什么", "分别有"]
+
+_ABSTRACT_MARKERS = ["价值观", "文化", "原则", "理念", "精神", "准则"]
+
+
+def _should_use_hyde(query: str, keywords: list[str] | None) -> bool:
+    """简单查询是否需要 HyDE 桥接术语差异。"""
+    keywords = keywords or []
+    if any(p in query for p in _LIST_PATTERNS):
+        return True
+    has_abstract = any(m in query for m in _ABSTRACT_MARKERS)
+    weak_keywords = len(keywords) < 3 or all(len(kw) <= 2 for kw in keywords)
+    if has_abstract and weak_keywords:
+        return True
+    return False
 
 
 class RetrievalOrchestrator:
@@ -57,6 +81,11 @@ class RetrievalOrchestrator:
         rewriter: QueryRewriter | None = None,
         intent_router: IntentRouter | None = None,
         citation: CitationInserter | None = None,
+        query_planner: Any = None,
+        query_preprocessor: Any = None,
+        critic: Any = None,
+        tracer: Any = None,
+        slm: Any = None,
     ):
         self._hybrid_search = hybrid_search
         self._reranker = reranker
@@ -64,6 +93,11 @@ class RetrievalOrchestrator:
         self._rewriter = rewriter
         self._intent_router = intent_router
         self._citation = citation or CitationInserter(embedding)
+        self._planner = query_planner
+        self._preprocessor = query_preprocessor
+        self._critic = critic
+        self._tracer = tracer
+        self._slm = slm or llm
 
     async def execute(
         self,
@@ -108,8 +142,27 @@ class RetrievalOrchestrator:
                     unique_chunks.append(c)
             all_chunks = unique_chunks
         else:
+            # ★ HyDE 术语桥接：抽象/列举类查询先生成假答案再搜索
+            _search_query = query
+            if _should_use_hyde(query, _keywords):
+                try:
+                    from llm.prompts.hyde import HYDE_PROMPT
+                    hyde_response = await self._llm.generate_content(
+                        HYDE_PROMPT.render(query=query)
+                    )
+                    hyde_doc = (
+                        hyde_response.content
+                        if hasattr(hyde_response, "content")
+                        else str(hyde_response)
+                    )
+                    if hyde_doc and len(hyde_doc.strip()) > 20:
+                        _search_query = hyde_doc.strip()
+                        logger.info(f"HyDE 桥接: '{query[:40]}' → 假答案搜索")
+                except Exception as e:
+                    logger.warning(f"HyDE 生成失败: {e}")
+
             all_chunks = await self._hybrid_search.search(
-                query, kb_ids, top_k * 2, _keywords
+                _search_query, kb_ids, top_k * 2, _keywords
             )
 
         if not all_chunks:
@@ -136,6 +189,7 @@ class RetrievalOrchestrator:
         kb_ids: list[str],
         history_messages: list[dict] | None = None,
         top_k: int | None = None,
+        trace_ctx: Any = None,
     ) -> RetrievalContext:
         """执行完整检索流程 — Web Chat 场景（含查询准备 + 检索执行）。
 

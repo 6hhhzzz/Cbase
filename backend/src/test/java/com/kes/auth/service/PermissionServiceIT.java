@@ -90,7 +90,7 @@ class PermissionServiceIT extends AbstractIntegrationTest {
         // ACE: allow member 组访问 restricted KB
         aceRepo.save(new AccessControlEntry(
             UUID.randomUUID().toString(), spaceId, "kb", kbRestrictedId,
-            "group", group.getId(), null, "allow", 0, "admin"));
+            "group", group.getId(), "admin", "allow", 0));
 
         // 验证允许
         List<String> kbIds = permQueryService.resolveAccessibleKbIds(spaceId, member.getId());
@@ -99,7 +99,7 @@ class PermissionServiceIT extends AbstractIntegrationTest {
         // ACE: deny member 用户访问 restricted KB（deny 覆盖 allow）
         aceRepo.save(new AccessControlEntry(
             UUID.randomUUID().toString(), spaceId, "kb", kbRestrictedId,
-            "user", member.getId(), null, "deny", 10, "admin"));
+            "user", member.getId(), "admin", "deny", 10));
 
         kbIds = permQueryService.resolveAccessibleKbIds(spaceId, member.getId());
         assertFalse(kbIds.contains(kbRestrictedId), "deny 应覆盖 allow，最终拒绝访问");

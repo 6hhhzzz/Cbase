@@ -285,6 +285,7 @@ class PdfParser(BaseParser):
                     "text": b.text,
                     "bbox": b.bbox,
                     "type": b.layout_type or "text",
+                    "level": b.level if b.layout_type == "title" else None,
                 })
             else:
                 other_blocks.append(b)
@@ -307,6 +308,7 @@ class PdfParser(BaseParser):
                 bbox=item.get("bbox"),
                 page_num=item.get("page_num", page_num),
                 layout_type=item.get("type", "text"),
+                level=item.get("level"),
             ))
 
         # 非文本块按 y 坐标插入

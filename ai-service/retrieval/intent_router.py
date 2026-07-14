@@ -10,7 +10,7 @@ import re
 from common import get_logger
 from llm.base import BaseLLM
 from llm.prompts.intent import INTENT_PROMPT
-from .models import IntentResult
+from .models import IntentResult, SubQuery
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ class IntentRouter:
             return self._build_result("factoid", query, method="fallback")
 
     def _build_result(self, intent: str, query: str, method: str) -> IntentResult:
-        """构建意图结果。"""
+        """构建查询计划（向后兼容：旧意图映射为 simple complexity）。"""
         top_k = _INTENT_TOP_K.get(intent, 5)
         sub_queries = []
 
@@ -81,10 +81,14 @@ class IntentRouter:
             sub_queries = self._split_compare_query(query)
 
         return IntentResult(
-            intent=intent,
+            complexity="simple",
+            rewritten_query=query,
             method=method,
             top_k=top_k,
-            sub_queries=sub_queries,
+            sub_queries=[
+                SubQuery(id=f"cq{i}", query=q)
+                for i, q in enumerate(sub_queries)
+            ] if sub_queries else [],
         )
 
     def _split_compare_query(self, query: str) -> list[str]:

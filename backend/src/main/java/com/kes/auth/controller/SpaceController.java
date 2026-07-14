@@ -50,7 +50,8 @@ public class SpaceController {
         String userId = extractUserId(authHeader);
         Space space = spaceService.createSpace(userId,
             body.get("name"), body.getOrDefault("type_label", "general"),
-            body.getOrDefault("description", ""));
+            body.getOrDefault("description", ""),
+            body.getOrDefault("space_type", "default"));
         return ApiResponse.success(Map.of("space_id", space.getId(), "name", space.getName()));
     }
 
@@ -235,6 +236,23 @@ public class SpaceController {
             @RequestBody Map<String, String> body) {
         kbService.updateKb(extractUserId(authHeader), spaceId, kbId,
             body.get("name"), body.get("visibility"));
+        return ApiResponse.success();
+    }
+
+    @PutMapping("/{spaceId}/kbs/{kbId}/metadata")
+    public ApiResponse<?> updateKbMetadata(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "X-Internal-Call", required = false) String internalCall,
+            @PathVariable String spaceId, @PathVariable String kbId,
+            @RequestBody Map<String, Object> body) {
+        String userId;
+        if ("true".equals(internalCall)) {
+            // Python 内部调用，取 KB 创建者作为操作人
+            userId = kbService.getKbCreator(kbId);
+        } else {
+            userId = extractUserId(authHeader);
+        }
+        kbService.updateKbMetadata(userId, spaceId, kbId, body);
         return ApiResponse.success();
     }
 

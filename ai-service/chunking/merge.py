@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 def merge_chunks(
     chunks: list[Chunk],
     relations: list[ChunkRelation],
-    target_tokens: int = 512,
+    target_tokens: int = 300,
     min_tokens: int = 50,
     separator: str = "\n\n",
 ) -> tuple[list[Chunk], list[ChunkRelation]]:
@@ -99,7 +99,8 @@ def merge_chunks(
                 # 否则停止合并
                 break
 
-        # 创建合并后的 chunk（保留第一个 chunk 的元数据）
+        # 创建合并后的 chunk（保留第一个 chunk 的元数据，包括 parent 信息）
+        merged_meta = {**chunk.metadata}
         merged_chunk = Chunk(
             id=chunk.id,
             content=current_text,
@@ -108,7 +109,7 @@ def merge_chunks(
             chunk_type="text",
             page_range=_merge_page_ranges(chunk, chunks, i, j - 1 if j > i + 1 else i),
             tokens=current_tokens,
-            metadata={**chunk.metadata},
+            metadata=merged_meta,
         )
         merged.append(merged_chunk)
         i = j if j > i + 1 else i + 1
@@ -148,12 +149,25 @@ def _merge_page_ranges(
 
 
 def _rebuild_relations(chunks: list[Chunk]) -> list[ChunkRelation]:
-    """合并后重建相邻关系。"""
+    """合并后重建相邻关系和父关系。"""
     relations = []
     for i in range(len(chunks)):
+        cur = chunks[i]
+        parent_id = cur.metadata.get("parent_id")
+
+        # 相邻关系（同 parent 内）
+        prev_id = chunks[i - 1].id if i > 0 else None
+        next_id = chunks[i + 1].id if i < len(chunks) - 1 else None
+
+        if i > 0 and chunks[i - 1].metadata.get("parent_id") != parent_id:
+            prev_id = None
+        if i < len(chunks) - 1 and chunks[i + 1].metadata.get("parent_id") != parent_id:
+            next_id = None
+
         rel = ChunkRelation(
-            prev_id=chunks[i - 1].id if i > 0 else None,
-            next_id=chunks[i + 1].id if i < len(chunks) - 1 else None,
+            parent_id=parent_id,
+            prev_id=prev_id,
+            next_id=next_id,
         )
         relations.append(rel)
     return relations

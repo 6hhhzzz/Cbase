@@ -174,7 +174,6 @@ api.interceptors.response.use(
 export const authApi = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
-  refresh: (data) => api.post('/auth/refresh', data),
   /** v3: 获取用户 Space 列表 */
   getSpaces: (refreshToken) => api.get('/auth/spaces', {
     headers: { Authorization: `Bearer ${refreshToken}` }
@@ -200,7 +199,6 @@ export const documentsApi = {
   update: (id, formData) => api.put(`/documents/${id}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  get: (id) => api.get(`/documents/${id}`),
   delete: (id) => api.delete(`/documents/${id}`),
   /** 更新文档元数据（生效日期、失效日期、版本、权限继承） */
   updateMetadata: (id, data) => api.put(`/documents/${id}/metadata`, data),
@@ -326,6 +324,11 @@ export function chatSSE(query, conversationId, excludedKbIds, onToken, onDone, o
   return () => { clearTimers(); abortController.abort() }
 }
 
+// ---- 反馈提交 ----
+
+export const submitFeedback = (traceId, rating, reason = '') =>
+  api.post('/chat/feedback', { trace_id: traceId, rating, reason })
+
 // ---- 用户搜索 ----
 
 export const userApi = {
@@ -345,8 +348,6 @@ export const conversationsApi = {
 
 export const spaceApi = {
   create: (name, typeLabel, description) => api.post('/spaces', { name, type_label: typeLabel, description }),
-  getMembers: (spaceId) => api.get(`/spaces/${spaceId}/members`),  // v4: 返回 {admins:[], groups:[]}
-  archive: (spaceId) => api.post(`/spaces/${spaceId}/archive`),
   // v4: Space 管理员
   getAdmins: (spaceId) => api.get(`/spaces/${spaceId}/admins`),
   addAdmin: (spaceId, userId, role) => api.post(`/spaces/${spaceId}/admins`, { user_id: userId, role }),
@@ -376,7 +377,6 @@ export const spaceApi = {
 
 export const groupsApi = {
   list: (params) => api.get('/groups', { params }),
-  get: (groupId) => api.get(`/groups/${groupId}`),
   create: (data) => api.post('/groups', data),
   update: (groupId, data) => api.put(`/groups/${groupId}`, data),
   delete: (groupId) => api.delete(`/groups/${groupId}`),
@@ -393,7 +393,6 @@ export const groupsApi = {
 
 export const rolesApi = {
   list: () => api.get('/roles'),
-  get: (roleId) => api.get(`/roles/${roleId}`),
   create: (data) => api.post('/roles', data),
   update: (roleId, data) => api.put(`/roles/${roleId}`, data),
   delete: (roleId) => api.delete(`/roles/${roleId}`),
@@ -437,8 +436,9 @@ export const modelAdminApi = {
   // 发现 + 测试
   discover: (providerId) => api.post(`/admin/models/discover/${providerId}`),
   test: (providerId) => api.post(`/admin/models/test/${providerId}`),
-  // 配置版本
-  getVersion: () => api.get('/admin/models/version'),
+  // v12: 配置文件读写
+  getConfig: () => api.get('/admin/models/config'),
+  updateConfig: (yamlContent) => api.put('/admin/models/config', { yaml_content: yamlContent }),
 }
 
 export default api

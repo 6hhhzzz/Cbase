@@ -11,16 +11,17 @@
       :model="form"
       :rules="rules"
       label-width="100px"
+      autocomplete="off"
       @submit.prevent="submit"
     >
       <el-form-item label="用户名" prop="username">
-        <el-input v-model="form.username" :disabled="mode === 'edit'" maxlength="32" />
+        <el-input v-model="form.username" :disabled="mode === 'edit'" maxlength="32" autocomplete="off" />
       </el-form-item>
       <el-form-item label="显示名称" prop="display_name">
-        <el-input v-model="form.display_name" maxlength="64" />
+        <el-input v-model="form.display_name" maxlength="64" autocomplete="off" />
       </el-form-item>
       <el-form-item label="邮箱" prop="email">
-        <el-input v-model="form.email" maxlength="255" />
+        <el-input v-model="form.email" maxlength="255" autocomplete="off" />
       </el-form-item>
       <el-form-item v-if="mode === 'create'" label="密码" prop="password">
         <el-input
@@ -29,6 +30,7 @@
           show-password
           maxlength="128"
           placeholder="留空则自动生成随机密码"
+          autocomplete="new-password"
         />
       </el-form-item>
       <el-form-item v-if="mode === 'edit'" label="状态" prop="status">

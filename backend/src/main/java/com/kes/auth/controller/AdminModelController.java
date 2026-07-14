@@ -5,6 +5,8 @@ import com.kes.common.annotation.RequireGlobalAdmin;
 import com.kes.common.dto.ModelAssignmentRequest;
 import com.kes.common.dto.ModelConfigRequest;
 import com.kes.common.dto.ModelProviderRequest;
+import com.kes.common.exception.BusinessException;
+import com.kes.common.exception.ErrorCode;
 import com.kes.common.model.ApiResponse;
 import com.kes.rag.client.AiServiceClient;
 import jakarta.validation.Valid;
@@ -107,9 +109,9 @@ public class AdminModelController {
     @RequireGlobalAdmin
     public ApiResponse<?> discoverModels(@PathVariable String providerId) {
         var provider = ((Map<String, Object>) service.listProviders().stream()
-                .filter(p -> providerId.equals(p.get("id")))
+                .filter(p -> providerId.equals(p.get("id")) || providerId.equals(p.get("name")))
                 .findFirst().orElseThrow(() ->
-                        new com.kes.common.exception.BusinessException(4002, "Provider 不存在")));
+                        new BusinessException(ErrorCode.PARAM_INVALID, "Provider 不存在")));
         String apiKey = service.resolveApiKey((String) provider.get("api_key_env"));
         Map<String, Object> req = Map.of(
                 "provider_type", provider.get("type"),
@@ -123,9 +125,9 @@ public class AdminModelController {
     @RequireGlobalAdmin
     public ApiResponse<?> testConnection(@PathVariable String providerId) {
         var provider = ((Map<String, Object>) service.listProviders().stream()
-                .filter(p -> providerId.equals(p.get("id")))
+                .filter(p -> providerId.equals(p.get("id")) || providerId.equals(p.get("name")))
                 .findFirst().orElseThrow(() ->
-                        new com.kes.common.exception.BusinessException(4002, "Provider 不存在")));
+                        new BusinessException(ErrorCode.PARAM_INVALID, "Provider 不存在")));
         String apiKey = service.resolveApiKey((String) provider.get("api_key_env"));
         Map<String, Object> req = Map.of(
                 "provider_type", provider.get("type"),
@@ -133,6 +135,24 @@ public class AdminModelController {
                 "api_key", apiKey
         );
         return ApiResponse.success(aiClient.testModelConnection(req).block());
+    }
+
+    // ---- v12: 配置文件读写（代理到 Python） ----
+
+    @GetMapping("/config")
+    @RequireGlobalAdmin
+    public ApiResponse<?> getModelsConfig() {
+        return ApiResponse.success(aiClient.getModelsConfig().block());
+    }
+
+    @PutMapping("/config")
+    @RequireGlobalAdmin
+    public ApiResponse<?> updateModelsConfig(@RequestBody Map<String, String> body) {
+        String yamlContent = body.getOrDefault("yaml_content", "");
+        if (yamlContent.isBlank()) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "yaml_content 不能为空");
+        }
+        return ApiResponse.success(aiClient.updateModelsConfig(yamlContent).block());
     }
 
     // ---- Python 用：全量激活配置 + 版本号 ----

@@ -79,12 +79,8 @@ public class KbService {
         return kb;
     }
 
+    /** 获取 Space 下所有活跃 KB。 */
     public List<KnowledgeBase> listKbs(String spaceId) {
-        return kbRepo.findBySpaceIdAndDeletedAtIsNull(spaceId);
-    }
-
-    /** 获取 Space 下所有活跃 KB（供 SpaceController 回收站等查询使用） */
-    public List<KnowledgeBase> getActiveKbs(String spaceId) {
         return kbRepo.findBySpaceIdAndDeletedAtIsNull(spaceId);
     }
 
@@ -110,6 +106,29 @@ public class KbService {
         auditLogger.log(operatorId, spaceId, "kb.update", "kb", kbId, kb.getName(),
             "{\"old_visibility\":\"" + oldVisibility + "\",\"new_visibility\":\"" + kb.getVisibility() + "\"}");
         log.info("KB 修改: id={}, visibility: {} -> {}", kbId, oldVisibility, kb.getVisibility());
+    }
+
+    /** 获取 KB 创建者 ID（供内部调用使用） */
+    public String getKbCreator(String kbId) {
+        KnowledgeBase kb = kbRepo.findById(kbId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.KB_NOT_FOUND));
+        return kb.getCreatedBy();
+    }
+
+    /** 更新 KB 元数据（kb_summary / kb_topics 等 AI 生成的字段） */
+    public void updateKbMetadata(String operatorId, String spaceId, String kbId,
+                                  Map<String, Object> metadata) {
+        KnowledgeBase kb = kbRepo.findById(kbId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.KB_NOT_FOUND));
+        permService.requireSpaceAdmin(spaceId, operatorId);
+
+        Map<String, Object> existing = kb.getMetadata();
+        if (existing == null) existing = new HashMap<>();
+        existing.putAll(metadata);
+        kb.setMetadata(existing);
+        kbRepo.save(kb);
+
+        log.info("KB 元数据更新: id={}, fields={}", kbId, metadata.keySet());
     }
 
     // ================================================================
@@ -194,7 +213,7 @@ public class KbService {
                         kb.getDeletedAt().plusDays(30)) : null)
         ).toList();
 
-        List<KnowledgeBase> activeKbs = getActiveKbs(spaceId);
+        List<KnowledgeBase> activeKbs = listKbs(spaceId);
         Map<String, String> kbNameMap = activeKbs.stream()
             .collect(Collectors.toMap(KnowledgeBase::getId, KnowledgeBase::getName));
         List<String> activeKbIds = activeKbs.stream().map(KnowledgeBase::getId).toList();

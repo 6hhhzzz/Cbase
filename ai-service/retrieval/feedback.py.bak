@@ -1,0 +1,12 @@
+"""RetrievalTracer — 检索质量追踪与反馈采集。
+
+已重构为 feedback/ 子包（builder / repository / cache）。
+本文件保留向后兼容的重导出。
+注意：当 feedback/ 目录存在时，Python 优先导入 feedback/__init__.py，
+本文件仅作为向后兼容的 fallback。
+"""
+
+# 重导出 feedback 子包的所有公共接口
+from .feedback import RetrievalTracer, DEFAULT_SAMPLE_RATE
+
+__all__ = ["RetrievalTracer", "DEFAULT_SAMPLE_RATE"]

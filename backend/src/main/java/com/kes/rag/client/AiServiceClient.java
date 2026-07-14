@@ -114,6 +114,28 @@ public class AiServiceClient {
     }
 
     /**
+     * 通知 Python 批量永久删除文档的向量 chunks。
+     *
+     * @return true 表示删除成功，false 表示 Python 服务不可达
+     */
+    public boolean batchDeleteDocumentChunks(List<String> docIds) {
+        try {
+            webClient.post()
+                .uri("/v1/documents/batch/chunks/delete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("doc_ids", docIds))
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block(Duration.ofSeconds(30));
+            return true;
+        } catch (Exception e) {
+            log.warn("通知 Python 批量删除 chunks 失败: count={}, error={}",
+                docIds.size(), e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * v6: 模型连通性测试 — 转发给 Python /v1/admin/models/test。
      */
     public Mono<Map> testModelConnection(Map<String, Object> request) {
@@ -133,6 +155,28 @@ public class AiServiceClient {
             .uri("/v1/admin/models/discover")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(request)
+            .retrieve()
+            .bodyToMono(Map.class);
+    }
+
+    /**
+     * v12: 获取模型配置文件内容 — 代理到 Python GET /v1/admin/models/config。
+     */
+    public Mono<Map> getModelsConfig() {
+        return webClient.get()
+            .uri("/v1/admin/models/config")
+            .retrieve()
+            .bodyToMono(Map.class);
+    }
+
+    /**
+     * v12: 更新模型配置文件 — 代理到 Python PUT /v1/admin/models/config。
+     */
+    public Mono<Map> updateModelsConfig(String yamlContent) {
+        return webClient.put()
+            .uri("/v1/admin/models/config")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(Map.of("yaml_content", yamlContent))
             .retrieve()
             .bodyToMono(Map.class);
     }

@@ -55,7 +55,7 @@ class DenseRetriever:
         chunks = []
         for r in results:
             chunks.append(ScoredChunk(
-                chunk_id=str(r.doc_id),
+                chunk_id=r.chunk_id or str(r.doc_id),
                 content=r.chunk_text,
                 score=r.score,
                 source_file=r.source_file,

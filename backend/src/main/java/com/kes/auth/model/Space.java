@@ -1,12 +1,18 @@
 package com.kes.auth.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 空间实体 — v3 Space/KB RBAC。
  * 顶层组织容器，对应乐享的"团队空间"概念。
  * type_label 自由文本，不做枚举约束。
+ * metadata JSONB — 存 space_type(default|ai_native) 等扩展属性。
  */
 @Entity
 @Table(name = "spaces")
@@ -42,6 +48,10 @@ public class Space {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private Map<String, Object> metadata = new HashMap<>();
 
     @PrePersist
     protected void onCreate() {
@@ -96,4 +106,17 @@ public class Space {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public Map<String, Object> getMetadata() { return metadata; }
+    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+
+    /** 便捷访问：space_type (default | ai_native) */
+    public String getSpaceType() {
+        Object v = metadata != null ? metadata.get("space_type") : null;
+        return v != null ? v.toString() : "default";
+    }
+    public void setSpaceType(String spaceType) {
+        if (metadata == null) metadata = new HashMap<>();
+        metadata.put("space_type", spaceType);
+    }
 }

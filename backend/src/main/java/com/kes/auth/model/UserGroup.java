@@ -30,6 +30,13 @@ public class UserGroup {
     @Column(name = "created_by", nullable = false, length = 36)
     private String createdBy;
 
+    // ★ v9: 外部同步字段
+    @Column(name = "external_id", length = 256)
+    private String externalId;
+
+    @Column(name = "source", length = 32)
+    private String source;  // 'manual' | 'csv' | 'ldap' | 'ad' | 'oidc' | 'sync'
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -76,6 +83,12 @@ public class UserGroup {
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
+    public String getExternalId() { return externalId; }
+    public void setExternalId(String externalId) { this.externalId = externalId; }
+
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

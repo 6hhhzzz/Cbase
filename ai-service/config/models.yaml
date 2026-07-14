@@ -1,0 +1,117 @@
+version: 2
+providers:
+  dashscope:
+    type: openai_compatible
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: sk-3cc8623477324228aa38570ca010adfc
+    description: 阿里云 DashScope
+  local:
+    type: local
+    description: 本地模型（HuggingFace 加载，无需 API）
+models:
+  qwen-plus:
+    provider: dashscope
+    model_name: qwen-plus
+    model_type: chat
+    max_tokens: 131072
+    dimension: 0
+    params:
+      temperature: 0.3
+      max_tokens: 2048
+    timeout:
+      connect: 10.0
+      read: 60.0
+      total: 120.0
+  qwen-turbo:
+    provider: dashscope
+    model_name: qwen-turbo
+    model_type: chat
+    max_tokens: 131072
+    dimension: 0
+    params:
+      temperature: 0.1
+      max_tokens: 1024
+    timeout:
+      connect: 5.0
+      read: 30.0
+      total: 60.0
+  text-embedding-v3:
+    provider: dashscope
+    model_name: text-embedding-v3
+    model_type: embedding
+    max_tokens: 8192
+    dimension: 1024
+    timeout:
+      connect: 10.0
+      read: 60.0
+      total: 120.0
+  dashscope-rerank:
+    provider: dashscope
+    model_name: gte-rerank-v2
+    model_type: reranker
+    api_path: /api/v1/services/rerank/text-rerank/text-rerank
+    timeout:
+      connect: 10.0
+      read: 60.0
+      total: 120.0
+  bge-reranker-v2-m3:
+    provider: local
+    model_name: BAAI/bge-reranker-v2-m3
+    model_type: reranker
+    max_tokens: 8192
+    dimension: 0
+    params:
+      device: cuda
+    timeout:
+      connect: 10.0
+      read: 60.0
+      total: 120.0
+  dashscope-ocr:
+    provider: dashscope
+    model_name: qwen3.5-ocr
+    model_type: ocr
+    max_tokens: 8192
+    dimension: 0
+    timeout:
+      connect: 10.0
+      read: 60.0
+      total: 120.0
+assignments:
+  chat:
+    model: qwen-plus
+    fallback: slm
+    description: 主 LLM — RAG 问答生成
+  slm:
+    model: qwen-turbo
+    fallback: chat
+    description: 轻量小模型 — 查询预处理 / DAG 三维提取 / Critic 决策
+  rewrite:
+    model: qwen-turbo
+    fallback: slm
+    description: Query 改写 — 多轮对话指代消解 fallback
+  intent:
+    model: qwen-turbo
+    fallback: slm
+    description: 意图分类 — 规则前置的 LLM 兜底
+  planner:
+    model: qwen-turbo
+    fallback: slm
+    description: 查询规划 — DAG 拆解 + HyDE 标记
+  embedding:
+    model: text-embedding-v3
+    description: 向量嵌入 — Dense 检索的文本向量化
+  reranker:
+    model: dashscope-rerank
+    fallback: rerank_local
+    description: 重排序 — DashScope gte-rerank API（优先）
+  rerank_local:
+    model: bge-reranker-v2-m3
+    fallback: rerank_llm
+    description: 重排序 — 本地 Cross-Encoder（DashScope 不可用时降级）
+  rerank_llm:
+    model: qwen-turbo
+    fallback: slm
+    description: LLM 重排降级 — 本地模型也不可用时的最终备选
+  ocr:
+    model: dashscope-ocr
+    description: OCR 文字识别 — 复杂 PDF 扫描页的光学字符识别

@@ -20,8 +20,8 @@
 
     <el-dialog v-model="dialogVisible" title="添加准入组" width="400px">
       <el-select v-model="selectedGroupId" placeholder="选择用户组" style="width:100%">
-        <el-option v-for="g in allGroups" :key="g.group_id || g.id"
-          :label="g.name" :value="g.group_id || g.id" />
+        <el-option v-for="g in allGroups" :key="g.group_id"
+          :label="g.name" :value="g.group_id" />
       </el-select>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>

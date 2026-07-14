@@ -15,6 +15,9 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
 
+    // ---- 通用 ----
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "请求参数无效"),
+
     // ---- Auth 认证模块 ----
     AUTH_USERNAME_EXISTS(HttpStatus.CONFLICT, "用户名已存在"),
     AUTH_BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED, "用户名或密码错误"),
@@ -27,6 +30,7 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "用户不存在"),
 
     // ---- Space 空间模块 ----
+    SPACE_NAME_CONFLICT(HttpStatus.CONFLICT, "空间名称已存在"),
     SPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "Space 不存在"),
     SPACE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "无权访问该 Space"),
     SPACE_ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "需要 Space 管理员权限"),

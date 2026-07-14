@@ -101,7 +101,8 @@ public class AdminController {
         List<User> users = userAdminService.listAllUsers(extractUserId(authHeader));
         return ApiResponse.success(users.stream().map(u ->
             new UserInfo(u.getId(), u.getUsername(), u.getDisplayName(),
-                u.getIsGlobalAdmin() != null && u.getIsGlobalAdmin(), u.getCreatedAt())
+                u.getIsGlobalAdmin() != null && u.getIsGlobalAdmin(),
+                u.getEmail(), u.getStatus(), u.getCreatedAt())
         ).toList());
     }
 

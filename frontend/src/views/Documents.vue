@@ -6,11 +6,16 @@
         <el-button @click="router.push(`/app/${route.params.spaceId}/chat`)">返回对话</el-button>
         <el-button v-if="authStore.isSpaceAdmin"
           @click="router.push(`/app/${route.params.spaceId}/approvals`)">审批管理</el-button>
+        <el-button v-if="selectedIds.length > 0" type="danger" @click="handleBatchDelete">
+          批量删除 ({{ selectedIds.length }})
+        </el-button>
         <el-button v-if="authStore.isSpaceMember" type="primary" @click="showUpload = true">上传文档</el-button>
       </div>
     </div>
 
-    <el-table :data="documents" stripe v-loading="loading" style="width:100%">
+    <el-table :data="documents" stripe v-loading="loading" style="width:100%"
+      @selection-change="onSelectionChange">
+      <el-table-column type="selection" width="45" />
       <el-table-column prop="filename" label="文件名" min-width="180" />
       <el-table-column prop="doc_version" label="版本" width="100" />
       <el-table-column prop="file_type" label="类型" width="70" />
@@ -87,9 +92,10 @@ const authStore = useAuthStore()
 
 const { kbs, loadKBs, kbName } = useKbFetcher({ autoSelectFirst: true })
 const { documents, loading, page, pageSize, total, uploading,
-  loadDocuments, doUpload, doDelete, toggleInherit, formatSize } = useDocuments()
+  loadDocuments, doUpload, doDelete, doBatchDelete, toggleInherit, formatSize } = useDocuments()
 
 const currentKbId = ref('')
+const selectedIds = ref([])
 const showUpload = ref(false)
 const showUpdate = ref(false)
 const updating = ref(false)
@@ -100,8 +106,7 @@ function statusText(s) { return INGEST_STATUS_TEXT_MAP[s] || s }
 
 onMounted(async () => {
   await loadKBs()
-  if (kbs.value.length > 0) currentKbId.value = kbs.value[0].kb_id
-  loadDocuments(currentKbId.value)
+  loadDocuments()  // kb_id 不传 = 查全 space
 })
 
 function onPageChange(p) {
@@ -129,10 +134,25 @@ function openUpdateDialog(row) {
   showUpdate.value = true
 }
 
+function onSelectionChange(rows) {
+  selectedIds.value = rows.map(r => r.id)
+}
+
 async function handleDelete(docId) {
   try {
     await ElMessageBox.confirm('确认删除该文档？', '提示', { type: 'warning' })
     await doDelete(docId)
+    loadDocuments(currentKbId.value)
+  } catch { /* cancel or error */ }
+}
+
+async function handleBatchDelete() {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedIds.value.length} 个文档？`, '批量删除', { type: 'warning' }
+    )
+    await doBatchDelete(selectedIds.value)
+    selectedIds.value = []
     loadDocuments(currentKbId.value)
   } catch { /* cancel or error */ }
 }

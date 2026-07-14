@@ -14,7 +14,7 @@ public final class SpaceDtos {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GroupInfo(
-        String id, String groupId, String groupName, LocalDateTime joinedAt
+        String id, String groupId, String groupName, boolean isSystemAdmin, LocalDateTime joinedAt
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -49,12 +49,13 @@ public final class SpaceDtos {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record UserInfo(
         String userId, String username, String displayName,
-        boolean isGlobalAdmin, LocalDateTime createdAt
+        boolean isGlobalAdmin, String email, String status, LocalDateTime createdAt
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record KbAccessInfo(
-        String kbId, String name, String description, String visibility
+        String kbId, String name, String description, String visibility,
+        String spaceType
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -66,12 +67,7 @@ public final class SpaceDtos {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GroupDetailInfo(
         String groupId, String name, String description, String parentGroupId,
-        boolean isSystemAdmin, LocalDateTime createdAt
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GroupMemberInfo(
-        String userId, String username, String displayName, LocalDateTime joinedAt
+        boolean isSystemAdmin, long memberCount, LocalDateTime createdAt
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

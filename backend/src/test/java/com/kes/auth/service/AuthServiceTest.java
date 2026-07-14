@@ -57,7 +57,7 @@ class AuthServiceTest {
         when(userRepo.existsByUsername("newuser")).thenReturn(false);
         when(passwordEncoder.encode("password")).thenReturn("hashed");
         Space defaultSpace = new Space("space-1", "默认空间", "general", "desc", "newuser");
-        when(spaceRepo.findAllByOrderByNameAsc()).thenReturn(List.of(defaultSpace));
+        when(spaceRepo.findAllActive()).thenReturn(List.of(defaultSpace));
         // 设置群组展开返回值，避免 NPE
         when(groupService.expandUserEffectiveGroups(anyString())).thenReturn(Set.of());
         when(permService.isGlobalAdmin(anyString())).thenReturn(false);

@@ -29,10 +29,5 @@ export function useChatMessages() {
     }
   }
 
-  function formatContent(text) {
-    if (!text) return ''
-    return text.replace(/\n/g, '<br>')
-  }
-
-  return { messages, input, loadMessages, formatContent }
+  return { messages, input, loadMessages }
 }

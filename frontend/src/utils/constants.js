@@ -48,11 +48,3 @@ export const APPROVAL_ACTION_TAG_MAP = {
   delete: 'danger',
 }
 
-/** API Key 有效期选项 */
-export const API_KEY_EXPIRE_OPTIONS = [
-  { label: '7 天', value: 7 },
-  { label: '30 天', value: 30 },
-  { label: '90 天', value: 90 },
-  { label: '365 天', value: 365 },
-  { label: '100 年（永久）', value: 36500 },
-]

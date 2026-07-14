@@ -34,6 +34,10 @@ const admins = ref([])
 const groups = ref([])
 
 async function load() {
+  if (!props.spaceId) {
+    console.error('[MemberOverview] spaceId 为空，跳过加载')
+    return
+  }
   loading.value = true
   try {
     const [aRes, gRes] = await Promise.all([
@@ -42,7 +46,8 @@ async function load() {
     ])
     admins.value = aRes.data.data || []
     groups.value = gRes.data.data || []
-  } catch {
+  } catch (e) {
+    console.error('[MemberOverview] 加载失败:', e?.message || e, 'spaceId:', props.spaceId)
     admins.value = []
     groups.value = []
   } finally {
@@ -50,6 +55,10 @@ async function load() {
   }
 }
 
-onMounted(load)
-watch(() => props.spaceId, load)
+onMounted(() => {
+  load()
+})
+watch(() => props.spaceId, (newId) => {
+  load()
+})
 </script>

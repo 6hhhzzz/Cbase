@@ -30,15 +30,18 @@ public class GroupService {
     private final UserGroupMemberRepository memberRepo;
     private final UserRepository userRepo;
     private final GroupAdminRepository groupAdminRepo;
+    private final GroupHierarchyService hierarchyService;
 
     public GroupService(UserGroupRepository groupRepo,
                         UserGroupMemberRepository memberRepo,
                         UserRepository userRepo,
-                        GroupAdminRepository groupAdminRepo) {
+                        GroupAdminRepository groupAdminRepo,
+                        GroupHierarchyService hierarchyService) {
         this.groupRepo = groupRepo;
         this.memberRepo = memberRepo;
         this.userRepo = userRepo;
         this.groupAdminRepo = groupAdminRepo;
+        this.hierarchyService = hierarchyService;
     }
 
     // ============================================================
@@ -198,21 +201,9 @@ public class GroupService {
             .toList();
     }
 
-    /** 获取组的所有成员（直接 + 嵌套子组成员展开） */
+    /** 获取组的所有成员（直接 + 嵌套子组成员展开） — 委托给 GroupHierarchyService */
     public Set<String> getExpandedMemberUserIds(String groupId) {
-        Set<String> userIds = new HashSet<>();
-        Set<String> visitedGroups = new HashSet<>();
-        collectMembersRecursive(groupId, userIds, visitedGroups);
-        return userIds;
-    }
-
-    private void collectMembersRecursive(String groupId, Set<String> userIds, Set<String> visitedGroups) {
-        if (!visitedGroups.add(groupId)) return;  // 防止循环引用
-        // 收集当前组的直接成员
-        memberRepo.findByGroupId(groupId).forEach(m -> userIds.add(m.getUserId()));
-        // 递归收集子组成员
-        groupRepo.findByParentGroupId(groupId).forEach(child ->
-            collectMembersRecursive(child.getId(), userIds, visitedGroups));
+        return hierarchyService.getExpandedMemberUserIds(groupId);
     }
 
     /** 按名称查找组 */
@@ -273,63 +264,41 @@ public class GroupService {
      *     → effectiveGroups = [后端架构组, 研发部, 公司全员]
      */
     public Set<String> expandUserEffectiveGroups(String userId) {
-        Set<String> result = new LinkedHashSet<>();
-        Deque<String> queue = new ArrayDeque<>();
-
-        // 起点：用户直接归属的组
-        List<String> directGroups = memberRepo.findGroupIdsByUserId(userId);
-        for (String gid : directGroups) {
-            if (result.add(gid)) {
-                queue.add(gid);
-            }
-        }
-
-        // BFS 上溯所有祖先组
-        while (!queue.isEmpty()) {
-            String gid = queue.poll();
-            groupRepo.findParentId(gid).ifPresent(parentId -> {
-                if (result.add(parentId)) {
-                    queue.add(parentId);
-                }
-            });
-        }
-
-        return result;
+        return hierarchyService.expandUserEffectiveGroups(userId);
     }
 
-    /**
-     * 展开指定组的所有祖先（不含自身）。
-     * 用于权限缓存失效：parent_group_id 变更时需要找出所有受影响的子组。
-     */
     public Set<String> expandAncestors(String groupId) {
-        Set<String> ancestors = new LinkedHashSet<>();
-        String current = groupId;
-        while (true) {
-            Optional<String> parent = groupRepo.findParentId(current);
-            if (parent.isEmpty()) break;
-            if (!ancestors.add(parent.get())) break;  // 防止循环
-            current = parent.get();
-        }
-        return ancestors;
+        return hierarchyService.expandAncestors(groupId);
     }
 
-    /**
-     * 获取指定组的所有子孙组 ID（递归向下展开）。
-     * 用于 parent_group_id 变更时的缓存失效。
-     */
     public Set<String> expandDescendants(String groupId) {
-        Set<String> result = new LinkedHashSet<>();
-        Deque<String> queue = new ArrayDeque<>();
-        queue.add(groupId);
-        while (!queue.isEmpty()) {
-            String gid = queue.poll();
-            List<UserGroup> children = groupRepo.findByParentGroupId(gid);
-            for (UserGroup child : children) {
-                if (result.add(child.getId())) {
-                    queue.add(child.getId());
-                }
-            }
-        }
-        return result;
+        return hierarchyService.expandDescendants(groupId);
     }
+
+    // ============================================================
+    // 嵌套建组 — 可复用的核心逻辑（★ v9 企业同步）
+    // ============================================================
+
+    /**
+     * 按路径逐级查找或创建嵌套用户组。
+     *
+     * <p>这是 KES 对接企业组织架构的核心方法。输入斜杠分隔的组路径，
+     * 逐级查找已有组；不存在的自动创建并链入父组。CSV 导入、
+     * LDAP/AD 同步、Keycloak/OIDC 组映射均复用此方法。
+     *
+     * <p>示例：输入 {@code "公司/技术中心/后端组"} → 创建三层层级：
+     * <pre>{@code
+     *   公司 (parent=null) → 技术中心 (parent=公司) → 后端组 (parent=技术中心)
+     * }</pre>
+     *
+     * @param path      组路径，斜杠分隔，如 "公司/技术中心/后端组"
+     * @param createdBy 操作人 userId（用于审计和 owner 分配）
+     * @return 叶子组 ID（路径最后一级的组）
+     * @throws BusinessException 如果路径为空或组名为空
+     */
+    @Transactional
+    public String findOrCreateGroupPath(String path, String createdBy) {
+        return hierarchyService.findOrCreateGroupPath(path, createdBy);
+    }
+
 }

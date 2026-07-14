@@ -80,8 +80,8 @@ public class AuthService {
         User user = new User(userId, username, passwordEncoder.encode(password), displayName);
         userRepo.save(user);
 
-        // 查找或创建默认 Space
-        Space defaultSpace = spaceRepo.findAllByOrderByNameAsc().stream()
+        // 查找或创建默认 Space（仅活跃空间）
+        Space defaultSpace = spaceRepo.findAllActive().stream()
             .findFirst()
             .orElseGet(() -> {
                 Space s = new Space(
@@ -224,11 +224,10 @@ public class AuthService {
         }
 
         return spaceRoles.entrySet().stream()
-            .map(e -> {
-                Space space = spaceRepo.findById(e.getKey()).orElse(null);
-                String name = space != null ? space.getName() : e.getKey();
-                return new UserInfo.SpaceInfo(e.getKey(), name, e.getValue());
-            })
+            .map(e -> spaceRepo.findById(e.getKey()).orElse(null))
+            .filter(s -> s != null && s.getDeletedAt() == null)  // 过滤已软删除的 Space
+            .map(s -> new UserInfo.SpaceInfo(s.getId(), s.getName(),
+                spaceRoles.get(s.getId())))
             .toList();
     }
 

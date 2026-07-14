@@ -3,6 +3,7 @@ package com.kes.auth.service;
 import com.kes.auth.model.*;
 import com.kes.auth.repository.*;
 import com.kes.common.exception.BusinessException;
+import com.kes.common.exception.ErrorCode;
 import com.kes.common.service.AuditLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -107,7 +108,7 @@ class AdminServiceTest {
 
     @Test
     void createUser_nonAdmin_throws() {
-        doThrow(new BusinessException(403, "仅全局管理员可操作"))
+        doThrow(new BusinessException(ErrorCode.SPACE_ACCESS_DENIED, "仅全局管理员可操作"))
             .when(permService).requireGlobalAdmin("normal-user");
 
         CreateUserRequest req = new CreateUserRequest("newuser", "新用户",

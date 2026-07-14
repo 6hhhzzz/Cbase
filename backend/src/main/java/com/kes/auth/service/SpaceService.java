@@ -76,10 +76,22 @@ public class SpaceService {
     /** 创建新 Space — 创建者自动成为 owner，并自动创建默认 KB */
     @Transactional
     public Space createSpace(String userId, String name, String typeLabel, String description) {
+        return createSpace(userId, name, typeLabel, description, "default");
+    }
+
+    /** 创建新 Space（含 space_type） */
+    @Transactional
+    public Space createSpace(String userId, String name, String typeLabel, String description, String spaceType) {
+        if (spaceRepo.existsByNameAndDeletedAtIsNull(name)) {
+            throw new BusinessException(ErrorCode.SPACE_NAME_CONFLICT, "空间名称已存在: " + name);
+        }
         String spaceId = UUID.randomUUID().toString();
         Space space = new Space(spaceId, name,
             typeLabel != null ? typeLabel : "general",
             description != null ? description : "", userId);
+        if (spaceType != null && !"default".equals(spaceType)) {
+            space.setSpaceType(spaceType);
+        }
         space = spaceRepo.save(space);
 
         // 创建者成为 owner
@@ -92,7 +104,8 @@ public class SpaceService {
         kbRepo.save(defaultKb);
 
         auditLogger.log(userId, spaceId, "space.create", "space", spaceId, name,
-            "{\"type_label\":\"" + (typeLabel != null ? typeLabel : "general") + "\"}");
+            "{\"type_label\":\"" + (typeLabel != null ? typeLabel : "general") + "\","
+            + "\"space_type\":\"" + space.getSpaceType() + "\"}");
 
         log.info("Space 创建: id={}, name={}, owner={}", spaceId, name, userId);
         return space;
@@ -213,11 +226,11 @@ public class SpaceService {
     /** 查看 Space 的准入组列表（含组名，供 Controller 使用） */
     public List<GroupInfo> getGroupsWithName(String spaceId) {
         List<SpaceGroup> groups = spaceGroupRepo.findBySpaceId(spaceId);
-        return groups.stream().map(g ->
-            new GroupInfo(g.getId(), g.getGroupId(),
-                groupService.getGroup(g.getGroupId()).getName(),
-                g.getJoinedAt())
-        ).toList();
+        return groups.stream().map(g -> {
+            UserGroup ug = groupService.getGroup(g.getGroupId());
+            return new GroupInfo(g.getId(), g.getGroupId(),
+                ug.getName(), ug.isSystemAdmin(), g.getJoinedAt());
+        }).toList();
     }
 
     /** 将全局用户组分配到 Space — Space admin */

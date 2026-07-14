@@ -155,8 +155,9 @@ public class GroupController {
     // ----
 
     private GroupDetailInfo toDto(UserGroup g) {
+        long memberCount = groupService.countMembers(g.getId());
         return new GroupDetailInfo(g.getId(), g.getName(), g.getDescription(),
-            g.getParentGroupId(), g.isSystemAdmin(), g.getCreatedAt());
+            g.getParentGroupId(), g.isSystemAdmin(), memberCount, g.getCreatedAt());
     }
 
     private String extractUserId(String authHeader) {

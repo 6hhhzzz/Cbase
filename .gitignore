@@ -20,6 +20,7 @@ ai-service/*.pyc
 ai-service/.venv/
 ai-service/venv/
 ai-service/.env
+ai-service/.secret/
 
 # Node
 frontend/node_modules/

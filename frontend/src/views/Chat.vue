@@ -21,11 +21,13 @@
         :conversations="conversations"
         :current-conv-id="currentConvId"
         @select="selectConversation"
+        @delete="deleteConversation"
       />
 
       <SidebarFooter
         :space-name="activeSpace?.space_name || ''"
         :role-label="roleLabel"
+        :kb-count="kbs.length"
         @go-settings="router.push(`/app/${spaceId}/settings`)"
         @go-documents="router.push(`/app/${spaceId}/documents`)"
         @switch-space="router.push('/spaces')"
@@ -46,8 +48,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { conversationsApi } from '../api'
+import { confirmDelete } from '../composables/useConfirmAction'
 import { ROLE_LABEL_MAP } from '../utils/constants'
 import { useKbFetcher } from '../composables/useKbFetcher'
 import { useChatKbFilter } from '../composables/useChatKbFilter'
@@ -83,13 +87,26 @@ async function loadConversations() {
   } catch { /* 非致命 */ }
 }
 
-const { streaming, send, newChat, selectConversation } = useChatSSE({
+const { streaming, send, newChat, selectConversation, cancelStreaming } = useChatSSE({
   spaceId,
   currentConvId,
   messages,
   excludedKbIds,
   onConversationsChanged: loadConversations,
 })
+
+async function deleteConversation(conv) {
+  const name = conv.title || '该对话'
+  if (!await confirmDelete(name)) return
+  try {
+    await conversationsApi.delete(conv.id)
+    ElMessage.success('对话已删除')
+    if (conv.id === currentConvId.value) {
+      router.push(`/app/${spaceId.value}/chat`)
+    }
+    await loadConversations()
+  } catch { /* 响应拦截器已处理错误 */ }
+}
 
 function onSend(text) {
   send(text)

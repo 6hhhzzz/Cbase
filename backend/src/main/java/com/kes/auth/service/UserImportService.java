@@ -80,7 +80,10 @@ public class UserImportService {
             int idxUsername = headers.indexOf("username");
             int idxDisplayName = headers.indexOf("display_name");
             int idxEmail = headers.indexOf("email");
-            int idxGroup = headers.indexOf("group_name");  // v7.1: 可选组归属
+            int idxDepartmentPath = headers.indexOf("department_path");  // ★ v9: 嵌套组路径
+            int idxGroups = headers.indexOf("groups");                   // ★ v9: 多组（|分隔）
+            int idxGroup = headers.indexOf("group_name");                // 兼容旧格式
+            int idxPassword = headers.indexOf("password");               // 企业同步：明文密码列
 
             if (idxUsername < 0 || idxDisplayName < 0) {
                 throw new BusinessException(ErrorCode.CSV_MISSING_COLUMN,
@@ -101,7 +104,14 @@ public class UserImportService {
                 String username = cols.size() > idxUsername ? cols.get(idxUsername).trim() : "";
                 String displayName = cols.size() > idxDisplayName ? cols.get(idxDisplayName).trim() : "";
                 String email = idxEmail >= 0 && cols.size() > idxEmail ? cols.get(idxEmail).trim() : "";
-                String groupName = idxGroup >= 0 && cols.size() > idxGroup ? cols.get(idxGroup).trim() : "";
+                String departmentPath = idxDepartmentPath >= 0 && cols.size() > idxDepartmentPath
+                    ? cols.get(idxDepartmentPath).trim() : "";
+                String groupsStr = idxGroups >= 0 && cols.size() > idxGroups
+                    ? cols.get(idxGroups).trim() : "";
+                String groupName = idxGroup >= 0 && cols.size() > idxGroup
+                    ? cols.get(idxGroup).trim() : "";
+                String password = idxPassword >= 0 && cols.size() > idxPassword
+                    ? cols.get(idxPassword).trim() : "";
 
                 // 校验
                 if (username.isEmpty()) {
@@ -124,15 +134,57 @@ public class UserImportService {
                 // 创建用户
                 try {
                     String userId = UUID.randomUUID().toString();
-                    String rawPassword = generateRandomPassword();
+                    // ★ 企业同步：CSV 有密码则用企业密码，否则随机生成
+                    boolean hasPassword = !password.isEmpty();
+                    String rawPassword = hasPassword ? password : generateRandomPassword();
                     User user = new User(userId, username,
                         passwordEncoder.encode(rawPassword), displayName);
                     if (!email.isEmpty()) user.setEmail(email);
                     user.setSource("import");
-                    user.setMustChangePassword(true);
+                    // 企业自带密码 → 无需强制改密；随机密码 → 首次登录必须改密
+                    user.setMustChangePassword(!hasPassword);
                     userRepo.save(user);
 
-                    // 组归属（可选）：按组名查找，存在则加入
+                    // ★ v9: 嵌套组路径 — "公司/技术中心/后端组"
+                    if (!departmentPath.isEmpty()) {
+                        try {
+                            String leafGroupId = groupService.findOrCreateGroupPath(
+                                departmentPath, operatorId);
+                            groupService.addMember(leafGroupId, userId);
+                        } catch (Exception e) {
+                            errors.add(new BatchImportResult.ImportError(
+                                rowNum, username, "组路径处理失败: " + e.getMessage()));
+                        }
+                    }
+
+                    // ★ v9: 多组归属（| 分隔）— "引擎组|核心组|全员公告组"
+                    if (!groupsStr.isEmpty()) {
+                        for (String gName : groupsStr.split("\\|")) {
+                            gName = gName.trim();
+                            if (gName.isEmpty()) continue;
+                            try {
+                                String gid = groupCache.get(gName);
+                                if (gid == null) {
+                                    var grp = groupService.findByName(gName);
+                                    if (grp.isPresent()) {
+                                        gid = grp.get().getId();
+                                        groupCache.put(gName, gid);
+                                    }
+                                }
+                                if (gid != null) {
+                                    groupService.addMember(gid, userId);
+                                } else {
+                                    errors.add(new BatchImportResult.ImportError(
+                                        rowNum, username, "组不存在: " + gName));
+                                }
+                            } catch (Exception e) {
+                                errors.add(new BatchImportResult.ImportError(
+                                    rowNum, username, "加入组失败 '" + gName + "': " + e.getMessage()));
+                            }
+                        }
+                    }
+
+                    // 兼容旧格式：单个 group_name
                     if (!groupName.isEmpty()) {
                         String gid = groupCache.get(groupName);
                         if (gid == null) {

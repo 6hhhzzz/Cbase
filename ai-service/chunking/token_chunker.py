@@ -33,8 +33,8 @@ class TokenChunker(BaseChunker):
 
     def __init__(
         self,
-        chunk_token_size: int = 512,
-        overlap_percent: float = 0.1,
+        chunk_token_size: int = 300,
+        overlap_percent: float = 0.15,
         min_chunk_tokens: int = 50,
     ):
         """

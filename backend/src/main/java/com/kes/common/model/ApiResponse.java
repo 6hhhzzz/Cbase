@@ -42,12 +42,4 @@ public record ApiResponse<T>(
         return new ApiResponse<>(errorCode.httpStatus.value(), message, null, System.currentTimeMillis(), errorCode.name());
     }
 
-    /**
-     * @deprecated 请使用 {@link #error(ErrorCode, String)} 传递 ErrorCode 枚举。
-     *             本方法保留用于过渡期兼容。
-     */
-    @Deprecated
-    public static <T> ApiResponse<T> error(int code, String message) {
-        return new ApiResponse<>(code, message, null, System.currentTimeMillis(), null);
-    }
 }

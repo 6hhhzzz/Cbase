@@ -40,10 +40,10 @@ def register_prompts(server, components):
                 "name": "document_analysis",
                 "description": (
                     "文档分析模板 — 提取核心要点、风险项和行动建议。"
-                    "适合对 read_document 获取的完整文档内容做结构化分析。"
+                    "适合对检索到的文档块或完整文档内容做结构化分析。"
                 ),
                 "arguments": [
-                    {"name": "document_content", "description": "read_document 返回的文档完整内容", "required": True},
+                    {"name": "document_content", "description": "待分析的文档文本内容（可从 search_chunks 的 content 字段获取）", "required": True},
                 ],
             },
         ]
@@ -70,26 +70,44 @@ def _generate_search_strategy(arguments: dict | None):
             "text": (
                 "你正在使用一个企业知识库检索系统（KES）。用户的问题是：\n\n"
                 f'"{user_question}"{ctx_block}\n\n'
-                "在调用 KES 的 search_chunks 或 ask_expert 工具之前，请按以下步骤分析：\n\n"
+                "在调用 KES 的 search_chunks 工具之前，请先读取 Resource 了解知识库概况，"
+                "再构造精确的查询。\n\n"
+                "## 推荐工作流\n"
+                "1. 先读 doc://catalog → 了解有哪些 KB、各有什么内容\n"
+                "2. 对目标 KB 读 doc://kb/{kb_id}/entities → 获取精确的实体术语（产品名、版本号、技术名词）\n"
+                "3. 可选：读 doc://kb/{kb_id}/structure → 了解文档章节结构，判断信息可能在哪个文档\n"
+                "4. 可选：读 doc://kb/{kb_id}/time_range → 判断 KB 是否活跃、有无过期风险\n"
+                "5. 带着精确术语调 search_chunks → 高质量检索\n\n"
                 "## 1. 提取关键实体\n"
                 "- 从用户问题中识别：产品名、系统名、版本号、模块名、错误码、文件名\n"
-                "- 从已知背景中提取：运行环境、已尝试步骤、相关配置\n\n"
-                "## 2. 判断信息需求类型\n"
-                "- 事实查询（某参数的值、某错误的含义）→ 用 search_chunks，获取精确片段\n"
-                "- 操作步骤（怎么安装、如何配置）→ 用 ask_expert，获取完整流程\n"
-                "- 对比分析（A 和 B 的区别）→ 用 search_chunks，自己综合判断\n"
-                "- 概念了解（什么是 XX）→ 用 ask_expert，获取解释\n"
-                "- 来源确认（这个信息来自哪个文档）→ 用 read_document\n\n"
-                "## 3. 构造高质量查询\n"
+                "- 从已知背景中提取：运行环境、已尝试步骤、相关配置\n"
+                "- 对比 doc://kb/{kb_id}/entities 中的实体清单——优先使用知识库中实际存在的术语\n\n"
+                "## 2. 构造高质量查询\n"
                 "- 将松散的口语表达转化为精确的技术术语\n"
-                "- 融入已知背景中的环境/版本信息\n"
+                "- 融入 doc://kb/{kb_id}/entities 中获取到的精确术语\n"
                 "- 将关键词按照重要性排序\n\n"
+                "## 3. 选择 top_k（最大返回 chunk 数）\n"
+                "- top_k 是最大返回数而非保证数——低置信度 chunk 会被自动过滤，实际返回可能更少\n"
+                "- 简单事实查找（查配置项、错误码含义）：top_k=5~8\n"
+                "- 一般技术问题（默认场景）：top_k=10~15\n"
+                "- 探索性搜索（需要更多候选综合分析）：top_k=15~20\n"
+                "- 全面调研（覆盖多个方面）：top_k=20~30\n"
+                "- 策略：先用较小 top_k 试探，如果返回数量不足或过滤率高，再加大 top_k 或重构 query\n"
+                "- 如果已限定 focus_aspects 或 doc_type，可适当增大 top_k 以在限定范围内获取更多结果\n\n"
                 "## 4. 选择策略\n"
                 "- 如果已知目标知识库 → 传入 kb_ids 参数\n"
                 "- 如果不确定 → 先读 doc://catalog 了解可用 KB\n"
                 "- 如果问题涉及特定方面 → 传入 focus_aspects 参数\n"
                 "- 如果已有用户背景 → 传入 context_hint 参数\n\n"
-                "请根据以上分析，确定应使用的工具和参数，然后执行调用。"
+                "## 5. 评估信息时效性\n"
+                "- 每条检索结果的 source 字段包含 doc_effective_date（文档生效日期）、"
+                "doc_expiry_date（文档失效日期）、doc_version（版本号）和 is_expired（是否已过期）\n"
+                "- is_expired=true 的 chunk 表示文档已过有效期，不应作为当前操作的权威依据\n"
+                "- 默认排除过期文档；如需查看已被新版本替代的历史规定，可传 time_range.expired='only'\n"
+                "- 用户问'之前的规定/旧版本'等历史问题时，应传入 time_range.expired='include' 或 'only'\n"
+                "- 对比分析时优先采用 doc_version 更高、doc_effective_date 更新的 chunk\n"
+                "- 如果所有检索结果的 is_expired 都=true，应提示用户\n\n"
+                "请根据以上分析，确定应使用的参数，然后执行 search_chunks。"
             ),
         },
     }]

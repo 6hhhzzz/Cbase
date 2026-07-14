@@ -6,6 +6,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from common import get_logger
 from models.lifecycle import DocumentStatusRequest
@@ -15,6 +16,10 @@ from .dependencies import get_pgvector_client
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/documents", tags=["documents"])
+
+
+class BatchDeleteChunksRequest(BaseModel):
+    doc_ids: list[str]
 
 
 @router.post("/status")
@@ -37,3 +42,23 @@ async def delete_document_chunks(
     count = await pgvector_client.delete_by_doc_id(UUID(doc_id))
     logger.info(f"文档 chunks 已删除: doc_id={doc_id}, count={count}")
     return {"ok": True, "deleted": count}
+
+
+@router.post("/batch/chunks/delete")
+async def batch_delete_chunks(
+    request: BatchDeleteChunksRequest,
+    pgvector_client: PGVectorClient = Depends(get_pgvector_client),
+):
+    """批量永久删除文档的所有向量 chunks。"""
+    results = {}
+    total = 0
+    for doc_id in request.doc_ids:
+        try:
+            count = await pgvector_client.delete_by_doc_id(UUID(doc_id))
+            results[doc_id] = count
+            total += count
+        except Exception as e:
+            results[doc_id] = 0
+            logger.warning(f"批量删除 chunks 失败: doc_id={doc_id}, error={e}")
+    logger.info(f"批量删除 chunks 完成: docs={len(request.doc_ids)}, total_chunks={total}")
+    return {"ok": True, "results": results, "total_deleted": total}

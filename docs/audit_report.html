@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KES 测试集审计报告 — 文档覆盖度 vs 评估得分</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f5f7fa; color:#333; }
+.header { background:linear-gradient(135deg,#722ed1,#531dab); color:#fff; padding:32px 48px; }
+.header h1 { font-size:22px; margin-bottom:8px; }
+.cards { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:24px 48px; }
+.card { background:#fff; border-radius:12px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); text-align:center; }
+.card .val { font-size:28px; font-weight:700; }
+.card .lbl { color:#8c8c8c; font-size:12px; margin-top:4px; }
+.card.g .val { color:#52c41a; }
+.card.y .val { color:#faad14; }
+.card.r .val { color:#ff4d4f; }
+.section { background:#fff; border-radius:12px; padding:24px; margin:24px 48px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.section h2 { font-size:16px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #f0f0f0; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th, td { padding:8px 10px; text-align:left; border-bottom:1px solid #f0f0f0; }
+th { background:#fafafa; font-weight:600; }
+tr:hover { background:#fafafa; }
+.note { background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; padding:16px; margin:16px 48px; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📋 测试集文档覆盖度审计</h1>
+  <p>逐条对比 45 个正向题的 expected_answer 与知识库中文档实际内容 | 生成: 2026-07-13 16:07</p>
+</div>
+
+<div class="cards">
+  <div class="card r"><div class="val">22</div><div class="lbl">❌ 信息不足 (49%)</div></div>
+  <div class="card y"><div class="val">13</div><div class="lbl">⚠️ 部分可答 (29%)</div></div>
+  <div class="card g"><div class="val">10</div><div class="lbl">✅ 充分可答 (22%)</div></div>
+  <div class="card"><div class="val">45</div><div class="lbl">总正向题</div></div>
+</div>
+
+<div class="note">
+  <strong>📌 核心发现：</strong>45 道正向题中，<strong>49%（22 道）的 expected_answer 超出了文档实际内容</strong>。
+  文档只有十几页，很多章节仅有大纲式表述（如价值观每条只有 2-3 个 bullet），expected_answer 中大量的细节解释和推理在文档中根本不存在。
+  当前 Judge faithfulness=0.533 不仅是检索系统的问题，更是<strong>文档信息密度不足</strong>的问题。
+</div>
+
+<div class="section">
+  <h2>📊 按覆盖度分组的实际评分</h2>
+  <table>
+    <tr><th>覆盖度</th><th>题数</th><th>faithfulness</th><th>answer_relevance</th><th>context_relevance</th><th>answer_correctness</th></tr>
+    
+    <tr>
+      <td>✅ 充分可答</td>
+      <td>10</td>
+      <td>0.400</td>
+      <td>0.500</td>
+      <td>0.400</td>
+      <td>0.485</td>
+    </tr>
+    <tr>
+      <td>⚠️ 部分可答</td>
+      <td>13</td>
+      <td>0.481</td>
+      <td>0.635</td>
+      <td>0.481</td>
+      <td>0.527</td>
+    </tr>
+    <tr>
+      <td>❌ 信息不足</td>
+      <td>22</td>
+      <td>0.625</td>
+      <td>0.795</td>
+      <td>0.625</td>
+      <td>0.682</td>
+    </tr>
+  </table>
+  <p style="margin-top:12px;font-size:12px;color:#8c8c8c">
+    充分可答题的 faithfulness 才是系统真正的能力上限。信息不足题的低分不应归因于检索系统。
+  </p>
+</div>
+
+<div class="section">
+  <h2>📝 全量审计明细</h2>
+  <table>
+    <tr><th>评级</th><th>ID</th><th>维度</th><th>问题</th><th>覆盖度</th><th>F</th><th>CR</th><th>文档缺失的内容</th></tr>
+    
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>1</td>
+      <td>简单事实</td>
+      <td>阿里巴巴成立于哪一年？公司的使命是什么？</td>
+      <td>0/2</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.00</td>
+      <td>阿里巴巴成立于1999年, 使命是「让天下没有难做的生意」，目标是成为一家走102年的企业</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>2</td>
+      <td>列表枚举</td>
+      <td>阿里巴巴六脉神剑价值观包含哪六个方面？请逐一列出。</td>
+      <td>3/6</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.00</td>
+      <td>六脉神剑价值观包括：1. 客户第一——客户是衣食父母，尊重客户，积极主动解决问题, 2. 团队合作——共享共担，平凡人做非凡事</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>3</td>
+      <td>定义解释</td>
+      <td>什么是利益冲突？如果我不确定是否存在利益冲突，应该怎么做？</td>
+      <td>0/4</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td>利益冲突是指个人利益无论以何种方式影响或从表面上看来可能影响公司利益的情况, 当员工所采取的行动或享有的利益令其难以客观、不偏不倚且有效地履行工作职责时，即产生</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>4</td>
+      <td>列表枚举</td>
+      <td>阿里巴巴集团的三大愿景是什么？</td>
+      <td>1/3</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.00</td>
+      <td>阿里巴巴集团的三大愿景是：1. 分享数据的第一平台, 3. 「活102年」</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>5</td>
+      <td>简单事实</td>
+      <td>阿里巴巴集团未来十年的使命是什么？</td>
+      <td>0/1</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>0.75</td>
+      <td>阿里巴巴集团未来十年的使命是：促进「开放、透明、分享、责任」的新商业文明</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>6</td>
+      <td>阈值/边界</td>
+      <td>员工在接受商业往来中的礼品时，有哪些金额限制和上交流程？</td>
+      <td>2/5</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.50</td>
+      <td>员工不得索取或接受任何私人利益或赠与，包括回扣、贿赂、私下佣金、低于市场价格的贷款、或现金及现金等价物（包括礼券和证券）, 适当的商务礼仪如餐饮及娱乐（现金或现</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>7</td>
+      <td>操作指引</td>
+      <td>员工离职时，对公司的资产有什么责任？</td>
+      <td>2/2</td>
+      <td style="color:#ff4d4f">0.25</td>
+      <td>0.25</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>8</td>
+      <td>定义解释</td>
+      <td>什么是内幕交易？阿里巴巴对内幕交易的态度是什么？</td>
+      <td>1/3</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.75</td>
+      <td>内幕交易是指员工使用任何未公开的股价敏感资料，以公司利益为代价，为自己或他人获取利益, 阿里巴巴集团绝不容许内幕交易，为私人目的使用未公开的股价敏感资料是违法和</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>9</td>
+      <td>禁止/红线</td>
+      <td>员工可以同时受雇于阿里巴巴的竞争方吗？</td>
+      <td>0/2</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>1.00</td>
+      <td>员工不应当同时受雇于阿里巴巴集团的竞争方，或与竞争方发生任何方式的关联（包括以咨询、顾问、志愿者或其他类似身份从事的活动, 员工也不应营销任何对阿里巴巴现有或潜</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>10</td>
+      <td>列表枚举</td>
+      <td>关于保密信息，员工需要遵守哪些基本要求？</td>
+      <td>0/4</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>1.00</td>
+      <td>员工必须：1. 不得为个人利益或任何人士的利益使用保密信息, 2. 严防向阿里巴巴集团外部人士披露该等信息，不应与家人或在社交圈、出租车、电梯、餐馆等场所讨论，</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>11</td>
+      <td>联系方式</td>
+      <td>如果员工知悉或怀疑有人违反了商业行为准则，应该向谁报告？通过什么渠道？</td>
+      <td>0/3</td>
+      <td style="color:#faad14">0.50</td>
+      <td>1.00</td>
+      <td>员工应立即向合规负责人报告, 可以通过发送邮件至integrity@alibaba-inc.com进行报告，或使用阿里巴巴集团计划设置的网站报告系统（</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>12</td>
+      <td>禁止/红线</td>
+      <td>阿里巴巴集团对工作场所暴力、吸烟和酒精饮品有什么规定？</td>
+      <td>0/3</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.75</td>
+      <td>工作场所暴力：阿里巴巴集团绝不允许在工作场所或其他与工作相关的场所中使用任何程度的暴力, 吸烟：除非子公司或部门另有规定，禁止在办公场所吸烟</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>13</td>
+      <td>阈值/边界</td>
+      <td>员工持有竞争方或业务往来公司的股票是否允许？有什么限制？</td>
+      <td>0/4</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>1.00</td>
+      <td>有一定的允许范围, 未经合规负责人事先书面批准，员工本人或关联人士不应持有与阿里巴巴集团存在竞争的公司的任何权益</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>14</td>
+      <td>操作指引</td>
+      <td>员工在面临疑难的商业道德或法律问题时，可以向哪些人或部门寻求帮助？</td>
+      <td>1/2</td>
+      <td style="color:#faad14">0.50</td>
+      <td>1.00</td>
+      <td>也可以发送邮件到compliance_officer@alibaba-inc.com进行咨询</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>15</td>
+      <td>时间/时效</td>
+      <td>利益冲突的披露有时间要求吗？具体是什么？</td>
+      <td>0/4</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>0.75</td>
+      <td>有明确的时间要求, 分三种情况：1. 本准则颁布前已存在的利益冲突——必须在接到本准则之日起一（1）个月内向合规负责人披露</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>16</td>
+      <td>禁止/红线</td>
+      <td>哪些违规行为会导致员工被因故解雇？</td>
+      <td>0/1</td>
+      <td style="color:#faad14">0.50</td>
+      <td>1.00</td>
+      <td>故意违反以下条款会被因故解雇：第一条第4.1款（工作场所暴力）、第三条第1款（利益冲突）、第3款（礼品、娱乐与其他款待）</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>17</td>
+      <td>列表枚举</td>
+      <td>阿里巴巴在业界获得了哪些重要成就和认可？请列举至少三项。</td>
+      <td>2/5</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.25</td>
+      <td>阿里巴巴的重要成就包括：1. 连续五次被美国权威财经杂志《福布斯》选为全球最佳B2B站点之一, 4. 被中国互联网络大赛组织委员会评为中国商务类优秀网站</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>18</td>
+      <td>列表枚举</td>
+      <td>「拥抱变化」的价值观包含哪几个层次的要求？</td>
+      <td>4/5</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.00</td>
+      <td>拥抱变化包含五个层次：1. 适应公司的日常变化，不抱怨</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>19</td>
+      <td>列表枚举</td>
+      <td>「客户第一」价值观的具体行为要求有哪些？</td>
+      <td>4/5</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.00</td>
+      <td>客户第一的具体要求包括：尊重他人，随时随地维护阿里巴巴形象</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>20</td>
+      <td>定义解释</td>
+      <td>「团队合作」价值观强调什么原则？</td>
+      <td>2/6</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.25</td>
+      <td>团队合作的核心理念是「共享共担，平凡人做非凡事」, 具体要求包括：积极融入团队，乐于接受同事帮助</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>21</td>
+      <td>操作指引</td>
+      <td>员工在遇到道德困境、无法判断什么是对的时，应该问自己哪些关键问题？</td>
+      <td>0/1</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td>员工应问自己以下问题：1. 我的行为是否体现阿里巴巴集团的核心商业价值观？2. 我的行为是否符合阿里巴巴集团的最大利益？</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>22</td>
+      <td>场景应用</td>
+      <td>如果员工收到法院传票或知悉可能发生的诉讼或政府调查，应该怎么做？</td>
+      <td>0/2</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.75</td>
+      <td>应立即发送邮件至compliance_officer@alibaba-inc.com与法务部联系, 在法务部告知如何应对之前，应保留、保存可能用于应诉的或与诉讼</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>23</td>
+      <td>场景应用</td>
+      <td>阿里巴巴对待员工隐私的政策是什么？公司能否查看员工的公司邮件？</td>
+      <td>2/2</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.75</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>24</td>
+      <td>场景应用</td>
+      <td>员工因公司业务需要向第三方提供礼品、餐饮或娱乐款待时，需要满足什么条件？</td>
+      <td>1/3</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td>必须满足以下条件：合法、合理且在具体情况下符合一般可接受的商业惯例, 绝对禁止提供或给予任何具有贿赂、回扣、私下佣金或私人利益性质的付款或礼品</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>25</td>
+      <td>禁止/红线</td>
+      <td>同事因为举报违规行为被报复，这种行为是否允许？有什么规定？</td>
+      <td>0/3</td>
+      <td style="color:#ff4d4f">0.25</td>
+      <td>0.25</td>
+      <td>无论出于何种原因，员工不应当利用在阿里巴巴的工作、职位和身份对任何员工实施报复, 其他员工可能在违反法律法规、本准则或阿里巴巴政策的行为调查或类似程序中提供信息</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>26</td>
+      <td>场景应用</td>
+      <td>员工在公司电脑上使用未经授权的软件会有什么问题？</td>
+      <td>3/4</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.00</td>
+      <td>员工应当了解并遵守适用的软件许可限制</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>27</td>
+      <td>禁止/红线</td>
+      <td>员工在社交媒体或公开场合可以代表阿里巴巴发言吗？</td>
+      <td>1/1</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>28</td>
+      <td>对比分析</td>
+      <td>「诚信」价值观和「敬业」价值观的核心要求分别是什么？请对比说明。</td>
+      <td>4/10</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.50</td>
+      <td>诚信的核心是「诚实正直，言行坦荡」：要求诚实正直、表里如一, 通过正确渠道表达意见，直言有讳</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>29</td>
+      <td>时间/时效</td>
+      <td>利益冲突披露和员工声明需要什么时候提交？涉及哪几个时间节点？</td>
+      <td>0/3</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>0.75</td>
+      <td>涉及三个时间节点：1. 准则颁布前已存在的利益冲突——接到本准则之日起一（1）个月内向合规负责人披露, 2. 新发生的实际或潜在利益冲突——知道或应当知道该利益</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>30</td>
+      <td>简单事实</td>
+      <td>阿里巴巴的商业行为准则适用于哪些人？</td>
+      <td>1/1</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>1.00</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>31</td>
+      <td>推理判断</td>
+      <td>如果员工的家人或关系密切的朋友拥有与阿里巴巴有业务往来的公司，这属于什么情况？如何处理？</td>
+      <td>0/5</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.50</td>
+      <td>这属于利益冲突的范畴, 员工的关联人士（包括家庭成员和关系密切的朋友）拥有与阿里巴巴有业务往来公司的权益，可能构成实际或潜在的利益冲突</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>32</td>
+      <td>联系方式</td>
+      <td>阿里巴巴商业行为准则中提到的联系邮箱有哪些？分别用于什么目的？</td>
+      <td>0/3</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.25</td>
+      <td>主要的联系邮箱有：1. integrity@alibaba-inc.com——联系合规负责人，用于利益冲突咨询、违规行为, 2. compliance_offi</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>33</td>
+      <td>对比分析</td>
+      <td>「拥抱变化」和「团队合作」这两个价值观在对待同事方面有什么不同的侧重点？</td>
+      <td>0/3</td>
+      <td style="color:#ff4d4f">0.00</td>
+      <td>0.25</td>
+      <td>拥抱变化侧重在面对变化时个人的态度和对他人的影响：自我调整、正面影响和带动同事, 团队合作侧重在日常协作中的态度：积极融入团队、决策前积极发表意见但决策后全力支</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>34</td>
+      <td>推理判断</td>
+      <td>阿里巴巴商业行为准则是劳动合同吗？员工是否有权依据准则主张合同权利？</td>
+      <td>1/3</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>1.00</td>
+      <td>商业行为准则并非合同，准则本身或在前后传达给员工的任何相关信息，不构成员工的任何合同权利, 准则可以不時修改，更新版本将在内网上公布</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>35</td>
+      <td>推理判断</td>
+      <td>员工是否可以在工作期间从事与阿里巴巴无关的个人商业活动？</td>
+      <td>0/3</td>
+      <td style="color:#faad14">0.50</td>
+      <td>1.00</td>
+      <td>员工不应将个人利益置于阿里巴巴集团的利益之上，不应利用阿里巴巴的职务或因职务获得的信息用于与阿里巴巴无关的目的, 员工也不应当与阿里巴巴集团形成任何形式的业务往</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>36</td>
+      <td>简单事实</td>
+      <td>阿里巴巴的B2B电子商务模式在互联网行业中的地位如何？</td>
+      <td>1/2</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td>阿里巴巴是全球企业间（B2B）电子商务的著名品牌，是全球最大的网上交易市场和商务交流社区，全球首家拥有480余万商人的电</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>37</td>
+      <td>操作指引</td>
+      <td>员工在业务通讯（包括电子邮件、即时通讯）中应注意什么？</td>
+      <td>4/4</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>38</td>
+      <td>场景应用</td>
+      <td>如果一个供应商送给员工价值500元的礼品卡，员工应该怎么处理？</td>
+      <td>0/4</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td>员工不得接受任何现金或现金等价物（包括礼券和证券）, 500元礼品卡属于现金等价物，应当拒绝接受</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>39</td>
+      <td>简单事实</td>
+      <td>阿里巴巴对平等雇佣机会和不歧视的政策是什么？</td>
+      <td>1/1</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.50</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>40</td>
+      <td>定义解释</td>
+      <td>公司机会原则是什么？员工遇到可能属于公司的商业机会应该怎么处理？</td>
+      <td>1/4</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>0.75</td>
+      <td>未经合规负责人事先书面批准，员工不得利用公司财产、信息或职位获取个人机会, 员工不应利用公司财产、信息或职位获取个人利益，也不应与公司竞争</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>41</td>
+      <td>推理判断</td>
+      <td>阿里巴巴的价值观中「拥抱变化」与互联网行业快速迭代的文化有什么内在联系？</td>
+      <td>0/4</td>
+      <td style="color:#ff4d4f">0.25</td>
+      <td>0.25</td>
+      <td>拥抱变化的核心是「迎接变化，勇于创新」, 互联网行业的特点就是快速变化和持续创新</td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>42</td>
+      <td>定义解释</td>
+      <td>阿里巴巴商业行为准则的豁免由谁决定？有什么条件？</td>
+      <td>2/3</td>
+      <td style="color:#52c41a">0.75</td>
+      <td>0.50</td>
+      <td>授予或拒绝授予豁免由阿里巴巴集团全权决定</td>
+    </tr>
+    <tr>
+      <td style="color:#ff4d4f;font-weight:bold">❌ 信息不足</td>
+      <td>43</td>
+      <td>场景应用</td>
+      <td>如果一位员工发现他的直接主管存在利益冲突但没有披露，他是否应该报告？如果报告后遭到了主管的打击报复，公司会怎么处理？</td>
+      <td>0/5</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.25</td>
+      <td>员工知悉或怀疑任何违反商业行为准则的行为，应立即向合规负责人通过发送邮件至integrity@alibaba-inc.c, 阿里巴巴绝不容忍报复行为</td>
+    </tr>
+    <tr>
+      <td style="color:#52c41a;font-weight:bold">✅ 充分可答</td>
+      <td>44</td>
+      <td>禁止/红线</td>
+      <td>员工使用公司电脑和网络时，有什么禁止行为？</td>
+      <td>1/1</td>
+      <td style="color:#faad14">0.50</td>
+      <td>0.50</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td style="color:#faad14;font-weight:bold">⚠️ 部分可答</td>
+      <td>45</td>
+      <td>操作指引</td>
+      <td>阿里巴巴商业行为准则的更新通知方式是什么？员工如何获取最新版本？</td>
+      <td>1/3</td>
+      <td style="color:#52c41a">1.00</td>
+      <td>0.50</td>
+      <td>准则可以不時修改，更新的版本将在阿里巴巴集团的内网上公布, 员工有责任及时了解并遵守最新版本的准则</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

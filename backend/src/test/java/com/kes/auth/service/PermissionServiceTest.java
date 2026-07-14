@@ -190,12 +190,12 @@ class PermissionServiceTest {
     // ================================================================
 
     @Test
-    void getUserSpaceRole_globalAdmin_returnsOwner() {
+    void getUserSpaceRole_globalAdminWithoutExplicitRole_returnsAdmin() {
         User user = new User(USER_ID, "admin", "pass", "Admin");
         user.setIsGlobalAdmin(true);
         when(userRepo.findById(USER_ID)).thenReturn(Optional.of(user));
 
-        assertEquals("owner", permissionService.getUserSpaceRole(SPACE_ID, USER_ID));
+        assertEquals("admin", permissionService.getUserSpaceRole(SPACE_ID, USER_ID));
     }
 
     @Test

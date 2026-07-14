@@ -28,6 +28,7 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     """单条检索结果。"""
 
+    chunk_id: str = ""
     doc_id: UUID
     chunk_index: int
     chunk_text: str

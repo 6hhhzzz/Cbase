@@ -20,17 +20,53 @@
         </el-collapse-item>
       </el-collapse>
     </div>
+    <!-- 点赞/点踩 — 仅 assistant 消息且非 streaming 时显示 -->
+    <div v-if="msg.role === 'assistant' && !streaming && msg.content" class="msg-feedback">
+      <button
+        :class="['fb-btn', { active: feedbackState === 'like', disabled: feedbackState === 'dislike' }]"
+        :disabled="feedbackState !== null"
+        title="回答满意"
+        @click="doFeedback('like')"
+      >👍</button>
+      <button
+        :class="['fb-btn', { active: feedbackState === 'dislike', disabled: feedbackState === 'like' }]"
+        :disabled="feedbackState !== null"
+        title="回答不佳"
+        @click="doFeedback('dislike')"
+      >👎</button>
+      <span v-if="feedbackState" class="fb-done">{{ feedbackState === 'like' ? '已反馈 · 感谢' : '已反馈 · 我们会改进' }}</span>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { ElMessage } from 'element-plus'
+import { submitFeedback } from '../../api'
 
-defineProps({
+const props = defineProps({
   msg: { type: Object, required: true },
   streaming: { type: Boolean, default: false },
 })
+
+const feedbackState = ref(null) // null | 'like' | 'dislike'
+
+async function doFeedback(rating) {
+  if (feedbackState.value) return
+  if (!props.msg.traceId) {
+    ElMessage({ message: '反馈功能暂不可用（缺少追踪标识）', type: 'warning', duration: 2000 })
+    return
+  }
+  try {
+    await submitFeedback(props.msg.traceId, rating)
+    feedbackState.value = rating
+    ElMessage({ message: rating === 'like' ? '感谢反馈！' : '感谢反馈，我们会持续改进', type: 'success', duration: 2000 })
+  } catch {
+    ElMessage({ message: '反馈提交失败，请稍后重试', type: 'error', duration: 2000 })
+  }
+}
 
 // 配置 marked：保留换行渲染为 <br>（GFM 标准行为）
 marked.setOptions({
@@ -94,4 +130,17 @@ function renderMarkdown(text) {
 .markdown-body :deep(th) { background: #f9fafb; font-weight: 600; }
 .markdown-body :deep(hr) { border: none; border-top: 1px solid #e5e7eb; margin: 0.8em 0; }
 .markdown-body :deep(a) { color: #2563eb; text-decoration: underline; }
+
+/* ── 反馈按钮 ── */
+.msg-feedback { margin-top: 8px; display: flex; gap: 6px; align-items: center; }
+.fb-btn {
+  background: none; border: 1px solid #e5e7eb; border-radius: 6px;
+  padding: 2px 8px; cursor: pointer; font-size: 14px; line-height: 1.6;
+  transition: all 0.15s; opacity: 0.5;
+}
+.fb-btn:not(:disabled):hover { opacity: 1; border-color: #1677ff; }
+.fb-btn.active { opacity: 1; border-color: #1677ff; background: #e6f4ff; }
+.fb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.fb-btn.active:disabled { opacity: 1; cursor: default; }
+.fb-done { font-size: 12px; color: #999; margin-left: 4px; }
 </style>

@@ -45,8 +45,18 @@ export function useChatSSE({ spaceId, currentConvId, messages, excludedKbIds, on
         // 否则直接修改原始对象会绕过 Vue 响应式系统导致 DOM 不更新
         (chunk) => {
           messages.value[assistantIdx].content += chunk.token || ''
-          if (chunk.done && chunk.sources) {
-            messages.value[assistantIdx].sources = chunk.sources
+          if (chunk.done) {
+            // 空响应保护：如果流式结束后 content 仍为空，显示默认错误提示
+            if (!messages.value[assistantIdx].content.trim()) {
+              messages.value[assistantIdx].content = '抱歉，AI 服务暂不可用，请稍后重试。'
+            }
+            if (chunk.sources) {
+              messages.value[assistantIdx].sources = chunk.sources
+            }
+            // 捕获 trace_id 用于后续反馈
+            if (chunk.trace?.trace_id) {
+              messages.value[assistantIdx].traceId = chunk.trace.trace_id
+            }
             streaming.value = false
           }
           nextTick(() => {

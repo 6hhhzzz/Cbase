@@ -26,6 +26,7 @@ jobs:
           cache: maven
       - run: mvn compile --batch-mode
       - run: mvn test --batch-mode
+      - run: mvn jacoco:report --batch-mode
       - run: mvn verify --batch-mode
 
   # ---- Python AI Service ----
@@ -40,7 +41,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
       - run: uv run ruff check .
-      - run: uv run pytest --rootdir=. tests/
+      - run: uv run pytest --rootdir=. --cov=. --cov-report=term --cov-fail-under=30 tests/
 
   # ---- Frontend ----
   frontend:
@@ -57,5 +58,5 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npm run test
+      - run: npm run test -- --coverage
       - run: npm run build

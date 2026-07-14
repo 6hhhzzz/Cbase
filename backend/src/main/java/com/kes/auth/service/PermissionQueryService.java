@@ -2,8 +2,10 @@ package com.kes.auth.service;
 
 import com.kes.auth.model.AccessControlEntry;
 import com.kes.auth.model.KnowledgeBase;
+import com.kes.auth.model.Space;
 import com.kes.auth.repository.AceRepository;
 import com.kes.auth.repository.KnowledgeBaseRepository;
+import com.kes.auth.repository.SpaceRepository;
 import com.kes.document.service.DocumentPermissionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,17 +36,20 @@ public class PermissionQueryService {
 
     private final KnowledgeBaseRepository kbRepo;
     private final AceRepository aceRepo;
+    private final SpaceRepository spaceRepo;
     private final KbPermissionCache permissionCache;
     private final PermissionService permService;
     private final DocumentPermissionService docPermissionService;
 
     public PermissionQueryService(KnowledgeBaseRepository kbRepo,
                                   AceRepository aceRepo,
+                                  SpaceRepository spaceRepo,
                                   KbPermissionCache permissionCache,
                                   PermissionService permService,
                                   DocumentPermissionService docPermissionService) {
         this.kbRepo = kbRepo;
         this.aceRepo = aceRepo;
+        this.spaceRepo = spaceRepo;
         this.permissionCache = permissionCache;
         this.permService = permService;
         this.docPermissionService = docPermissionService;
@@ -203,12 +208,16 @@ public class PermissionQueryService {
     public List<com.kes.common.dto.SpaceDtos.KbAccessInfo> resolveAccessibleKbInfoList(
             String spaceId, String userId) {
         List<String> kbIds = resolveAccessibleKbIds(spaceId, userId, "kb.read");
+        // 取 space 的 space_type（一次查询）
+        String spaceType = spaceRepo.findById(spaceId)
+            .map(Space::getSpaceType).orElse("default");
         return kbIds.stream()
             .map(kbRepo::findById).filter(Optional::isPresent).map(Optional::get)
             .filter(kb -> kb.getDeletedAt() == null)
             .map(kb -> new com.kes.common.dto.SpaceDtos.KbAccessInfo(
                 kb.getId(), kb.getName(),
-                kb.getDescription() != null ? kb.getDescription() : "", kb.getVisibility()))
+                kb.getDescription() != null ? kb.getDescription() : "", kb.getVisibility(),
+                spaceType))
             .toList();
     }
 

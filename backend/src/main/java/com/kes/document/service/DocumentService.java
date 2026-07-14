@@ -1,5 +1,6 @@
 package com.kes.document.service;
 
+import com.kes.auth.service.PermissionService;
 import com.kes.common.event.AuditLogEvent;
 import com.kes.common.event.DocumentPermanentlyDeletedEvent;
 import com.kes.common.exception.BusinessException;
@@ -44,19 +45,22 @@ public class DocumentService {
     private final ApplicationEventPublisher eventPublisher;
     private final DocumentQueryService queryService;
     private final DocumentApprovalService approvalService;
+    private final PermissionService permissionService;
 
     public DocumentService(DocumentMetaRepository docRepo,
                            MinioStorageService minioStorage,
                            RabbitTemplate rabbitTemplate,
                            ApplicationEventPublisher eventPublisher,
                            DocumentQueryService queryService,
-                           DocumentApprovalService approvalService) {
+                           DocumentApprovalService approvalService,
+                           PermissionService permissionService) {
         this.docRepo = docRepo;
         this.minioStorage = minioStorage;
         this.rabbitTemplate = rabbitTemplate;
         this.eventPublisher = eventPublisher;
         this.queryService = queryService;
         this.approvalService = approvalService;
+        this.permissionService = permissionService;
     }
 
     /** 上传文档 — 管理员直接通过，成员需审批 */
@@ -82,7 +86,7 @@ public class DocumentService {
             throw new BusinessException(ErrorCode.DOC_UPLOAD_FAILED);
         }
 
-        boolean isAdmin = "admin".equals(role);
+        boolean isAdmin = permissionService.isSpaceAdmin(spaceId, userId);
         String approvalStatus = isAdmin ? "approved" : "pending";
 
         DocumentMeta meta = new DocumentMeta();

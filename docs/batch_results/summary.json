@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-07-13 18:10:04",
+  "total_samples": 60,
+  "positive_count": 45,
+  "negative_count": 15,
+  "error_count": 0,
+  "pos_avg_scores": {
+    "faithfulness": 0.5278,
+    "answer_relevance": 0.6556,
+    "context_relevance": 0.5556,
+    "answer_correctness": 0.5389
+  },
+  "neg_refused": 14,
+  "neg_hallucinated": 1,
+  "avg_first_token_ms": 2554.266666666667,
+  "avg_total_ms": 10152.116666666667
+}

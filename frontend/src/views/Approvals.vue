@@ -46,7 +46,7 @@
             查看
           </el-button>
           <template v-if="row.status === 'pending' && authStore.isSpaceAdmin">
-            <el-button type="success" size="small" :loading="approving === row.id" @click="handleApprove(row)">
+            <el-button type="success" size="small" :loading="approving === row.approval_id" @click="handleApprove(row)">
               通过
             </el-button>
             <el-button type="danger" size="small" @click="showRejectDialog(row)">
@@ -126,7 +126,7 @@ async function loadApprovals() {
 }
 
 async function handleApprove(row) {
-  approving.value = row.id
+  approving.value = row.approval_id
   try {
     await documentsApi.approve(row.approval_id)
     ElMessage.success(`「${row.filename}」已通过审批`)

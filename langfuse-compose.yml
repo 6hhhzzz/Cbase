@@ -1,0 +1,21 @@
+# Langfuse 最小开发部署
+# 复用项目现有 postgres，只加 langfuse-web 一个容器
+services:
+  langfuse-web:
+    image: langfuse/langfuse:2
+    container_name: kes-langfuse
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://kes:kes123@kes-postgres:5432/kes_langfuse"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "changeme-dev-secret-at-least-32-chars-long!!"
+      SALT: "changeme-dev-salt"
+      ENCRYPTION_KEY: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+      TELEMETRY_ENABLED: "false"
+
+networks:
+  default:
+    name: my_agent_kes-net
+    external: true

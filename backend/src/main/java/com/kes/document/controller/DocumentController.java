@@ -119,7 +119,7 @@ public class DocumentController {
         return ApiResponse.success(meta);
     }
 
-    /** 查询 KB 中的文档列表 */
+    /** 查询文档列表 — 指定 kb_id 时查该 KB，否则查用户所在 Space 的所有 KB */
     @GetMapping
     public ApiResponse<Map<String, Object>> list(
         @RequestParam(defaultValue = "1") int page,
@@ -128,14 +128,15 @@ public class DocumentController {
         @RequestParam(value = "kb_id", defaultValue = "") String kbId,
         Authentication auth
     ) {
+        String token = (String) auth.getCredentials();
+        String spaceId = jwtUtil.extractSpaceId(token);
+
+        Page<DocumentMeta> result;
         if (kbId.isBlank()) {
-            return ApiResponse.success(Map.of(
-                "total", 0, "page", page, "items", List.of(), "page_size", pageSize
-            ));
+            result = documentQueryService.listBySpace(spaceId, status, page, pageSize);
+        } else {
+            result = documentQueryService.listByKb(kbId, status, page, pageSize);
         }
-        Page<DocumentMeta> result = documentQueryService.list(
-            kbId, auth.getName(), status, page, pageSize
-        );
         return ApiResponse.success(Map.of(
             "items", result.getContent(),
             "total", result.getTotalElements(),
@@ -203,6 +204,57 @@ public class DocumentController {
     public ApiResponse<Void> permanentDelete(@PathVariable String docId) {
         documentTrashService.permanentDelete(docId);
         return ApiResponse.success();
+    }
+
+    /** 批量软删除 — 逐文档权鉴，逻辑与单文档完全一致 */
+    @DeleteMapping("/batch")
+    public ApiResponse<Map<String, Object>> batchDelete(
+        @RequestBody List<String> docIds, Authentication auth
+    ) {
+        String userId = auth.getName();
+        java.util.List<String> deleted = new java.util.ArrayList<>();
+        java.util.List<Map<String, String>> pendingApproval = new java.util.ArrayList<>();
+
+        for (String docId : docIds) {
+            DocumentMeta doc = documentQueryService.getById(docId);
+            String spaceId = doc.getSpaceId();
+            String kbId = doc.getKbId();
+
+            if (permissionService.hasPermission(userId, spaceId, kbId, "kb.delete")) {
+                documentTrashService.softDelete(docId);
+                deleted.add(docId);
+            } else {
+                documentApprovalService.requestDelete(docId, userId);
+                pendingApproval.add(Map.of("docId", docId,
+                    "message", "删除请求已提交，待管理员审批"));
+            }
+        }
+
+        return ApiResponse.success(Map.of(
+            "deleted", deleted,
+            "pending_approval", pendingApproval
+        ));
+    }
+
+    /** 批量永久删除 — admin 专属 */
+    @DeleteMapping("/batch/permanent")
+    @RequireSpaceAdmin
+    public ApiResponse<Map<String, Object>> batchPermanentDelete(
+        @RequestBody List<String> docIds
+    ) {
+        int success = 0;
+        java.util.List<Map<String, String>> failed = new java.util.ArrayList<>();
+
+        for (String docId : docIds) {
+            try {
+                documentTrashService.permanentDelete(docId);
+                success++;
+            } catch (Exception e) {
+                failed.add(Map.of("docId", docId, "reason", e.getMessage()));
+            }
+        }
+
+        return ApiResponse.success(Map.of("deleted", success, "failed", failed));
     }
 
     // ---- 文件下载/预览 ----

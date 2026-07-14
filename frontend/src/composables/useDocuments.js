@@ -18,7 +18,8 @@ export function useDocuments() {
   async function loadDocuments(kbId) {
     loading.value = true
     try {
-      const params = { page: page.value, page_size: pageSize.value, kb_id: kbId }
+      const params = { page: page.value, page_size: pageSize.value }
+      if (kbId) params.kb_id = kbId  // 可选 filter
       const res = await documentsApi.list(params)
       const data = res.data.data
       documents.value = data.items || []
@@ -53,6 +54,15 @@ export function useDocuments() {
     }
   }
 
+  async function doBatchDelete(docIds) {
+    const res = await documentsApi.batchDelete(docIds)
+    const body = res.data
+    const deleted = body.data?.deleted || []
+    const pending = body.data?.pending_approval || []
+    if (deleted.length) ElMessage.success(`已删除 ${deleted.length} 个文档`)
+    if (pending.length) ElMessage.info(`${pending.length} 个文档已提交审批`)
+  }
+
   // ---- 元数据 ----
   async function toggleInherit(doc, val) {
     try {
@@ -72,6 +82,6 @@ export function useDocuments() {
 
   return {
     documents, loading, page, pageSize, total,
-    uploading, loadDocuments, doUpload, doDelete, toggleInherit, formatSize,
+    uploading, loadDocuments, doUpload, doDelete, doBatchDelete, toggleInherit, formatSize,
   }
 }

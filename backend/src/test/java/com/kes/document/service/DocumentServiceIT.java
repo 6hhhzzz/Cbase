@@ -82,7 +82,7 @@ class DocumentServiceIT extends AbstractIntegrationTest {
     @Test
     @Transactional
     void list_returnsDocumentsByKbId() {
-        Page<DocumentMeta> results = queryService.list(kbId, "admin", null, 1, 20);
+        Page<DocumentMeta> results = queryService.listByKb(kbId, null, 1, 20);
         assertFalse(results.isEmpty(), "应返回至少一个文档");
         assertTrue(results.getContent().stream().allMatch(d ->
             kbId.equals(d.getKbId())), "所有结果应属于指定的 KB");

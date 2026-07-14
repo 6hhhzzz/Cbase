@@ -7,7 +7,7 @@
   - resources_def.py — Resource schema + read_resource 处理
   - prompts_def.py   — Prompt schema + get_prompt 生成
   - auth.py          — MCP 鉴权（API Key → Token 交换）
-  - tools.py         — Tool 实现（search_chunks / read_document / ask_expert）
+  - tools.py         — Tool 实现（search_chunks）
 """
 
 import asyncio
@@ -17,6 +17,7 @@ from mcp.server.stdio import stdio_server
 
 from common import get_logger
 from kes_mcp.auth import MCPAuth
+from kes_mcp.rate_limiter import TokenBucket
 from kes_mcp.tools_def import register_tools
 from kes_mcp.resources_def import register_resources
 from kes_mcp.prompts_def import register_prompts
@@ -33,6 +34,7 @@ class MCPComponents:
         self.llm = None
         self.embedding = None
         self.auth: MCPAuth | None = None
+        self.rate_limiter: TokenBucket | None = None
 
 
 # ---- 组件引用（由 api/app.py lifespan 注入） ----
@@ -50,7 +52,9 @@ def init_components(retrieval_orch, context_assembler, llm, embedding):
 # ---- MCP Server 实例 ----
 _server = Server("kes-mcp")
 _auth = MCPAuth()
+_rate_limiter = TokenBucket(capacity=30, fill_rate=1.0)
 _components.auth = _auth
+_components.rate_limiter = _rate_limiter
 
 # 注册 Tool / Resource / Prompt 处理器
 register_tools(_server, _components)
@@ -66,7 +70,7 @@ async def main():
             logger.warning("未配置 API Key（KES_API_KEY），将以无权限模式运行")
 
     if _components.retrieval_orch is None:
-        logger.warning("检索组件未注入，search_chunks / ask_expert 将不可用")
+        logger.warning("检索组件未注入，search_chunks 将不可用")
 
     async with stdio_server() as (read_stream, write_stream):
         await _server.run(

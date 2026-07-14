@@ -174,7 +174,7 @@ async function loadTree() {
   treeLoading.value = true
   try {
     const res = await groupsApi.list()
-    const roots = res.data.data || []
+    const roots = (res.data.data || []).map(normalizeGroup)
     treeData.value = await Promise.all(roots.map(buildTreeNode))
   } catch (e) {
     ElMessage.error('加载用户组失败')
@@ -184,11 +184,20 @@ async function loadTree() {
   }
 }
 
+/** 将后端 snake_case 字段归一化为前端使用的 camelCase */
+function normalizeGroup(g) {
+  return {
+    ...g,
+    id: g.group_id || g.id,
+    member_count: g.member_count ?? 0,
+  }
+}
+
 async function buildTreeNode(g) {
   let children = []
   try {
     const res = await groupsApi.list({ parent_id: g.id })
-    const subs = res.data.data || []
+    const subs = (res.data.data || []).map(normalizeGroup)
     children = await Promise.all(subs.map(buildTreeNode))
   } catch (e) {
     console.error('buildTreeNode:', g.id, e)

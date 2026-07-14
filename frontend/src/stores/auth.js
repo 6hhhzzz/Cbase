@@ -63,13 +63,6 @@ export const useAuthStore = defineStore('auth', () => {
     return activeSpace.value
   }
 
-  function leaveSpace() {
-    contextToken.value = ''
-    localStorage.removeItem('context_token')
-    activeSpace.value = null
-    localStorage.removeItem('active_space')
-  }
-
   function logout() {
     refreshToken.value = ''
     contextToken.value = ''
@@ -87,6 +80,6 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken, contextToken, user, spaces, activeSpace,
     isLoggedIn, hasActiveSpace, currentRole,
     isGlobalAdmin, isOwner, isSpaceAdmin, isSpaceMember,
-    login, register, switchSpace, leaveSpace, logout
+    login, register, switchSpace, logout
   }
 })

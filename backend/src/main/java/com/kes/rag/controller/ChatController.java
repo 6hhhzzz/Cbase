@@ -1,8 +1,11 @@
 package com.kes.rag.controller;
 
+import com.kes.auth.service.FeedbackService;
 import com.kes.auth.service.PermissionQueryService;
 import com.kes.auth.service.PermissionService;
 import com.kes.common.exception.BusinessException;
+import com.kes.common.exception.ErrorCode;
+import com.kes.common.model.ApiResponse;
 import com.kes.common.util.JwtUtil;
 import com.kes.conversation.model.Message;
 import com.kes.conversation.service.ConversationService;
@@ -36,17 +39,20 @@ public class ChatController {
     private final ConversationService conversationService;
     private final PermissionQueryService permissionQueryService;
     private final PermissionService permissionService;
+    private final FeedbackService feedbackService;
 
     public ChatController(AiServiceClient aiServiceClient, JwtUtil jwtUtil,
                           ConversationService conversationService,
                           PermissionQueryService permissionQueryService,
                           PermissionService permissionService,
+                          FeedbackService feedbackService,
                           ObjectMapper objectMapper) {
         this.aiServiceClient = aiServiceClient;
         this.jwtUtil = jwtUtil;
         this.conversationService = conversationService;
         this.permissionQueryService = permissionQueryService;
         this.permissionService = permissionService;
+        this.feedbackService = feedbackService;
         this.objectMapper = objectMapper;
     }
 
@@ -172,10 +178,14 @@ public class ChatController {
     private void handleSseError(SseEmitter emitter, Throwable error, String convId,
                                  StringBuilder content, String[] sources) {
         log.error("Python AI Service 调用失败: {}", error.getMessage());
-        saveAssistantMessage(convId, content.toString(), sources[0]);
+        String finalContent = content != null && content.length() > 0
+            ? content.toString()
+            : "抱歉，AI 服务暂不可用，请稍后重试。";
+        saveAssistantMessage(convId, finalContent, sources[0]);
         try {
-            emitter.send(SseEmitter.event().name("error")
-                .data("{\"token\":\"\",\"done\":true,\"sources\":[]}"));
+            emitter.send(SseEmitter.event().name("message")
+                .data("{\"token\":\"\",\"done\":true,\"sources\":" +
+                      (sources[0] != null ? sources[0] : "[]") + "}", MediaType.APPLICATION_JSON));
             emitter.complete();
         } catch (Exception ex) {
             emitter.completeWithError(ex);
@@ -185,14 +195,28 @@ public class ChatController {
     private void handleSseComplete(SseEmitter emitter, String convId,
                                     StringBuilder content, String[] sources) {
         log.info("问答完成: conv={}", convId);
-        saveAssistantMessage(convId, content.toString(), sources[0]);
+        String finalContent = content != null ? content.toString() : "";
+        // 检测空响应：如果 LLM 未返回任何 token（可能在 Python 端已插入错误信息），
+        // 保存消息时允许空内容的错误提示通过
+        saveAssistantMessage(convId, finalContent, sources[0]);
+        // 如果确实是空响应，在完成前发送一条错误提示
+        if (finalContent.isEmpty()) {
+            log.warn("assistant 回复为空: conv={}", convId);
+            try {
+                emitter.send(SseEmitter.event().name("message")
+                    .data("{\"token\":\"抱歉，AI 服务响应为空，请检查 API Key 配置或稍后重试。\",\"done\":true,\"sources\":[]}",
+                          MediaType.APPLICATION_JSON));
+            } catch (Exception e) {
+                log.error("发送空响应错误提示失败: {}", e.getMessage());
+            }
+        }
         emitter.complete();
     }
 
     private void saveAssistantMessage(String conversationId, String content, String sources) {
         if (content == null || content.isEmpty()) {
-            log.warn("assistant 回复为空，跳过保存: conv={}", conversationId);
-            return;
+            // 保存错误提示作为 assistant 消息，让用户能看到错误信息
+            content = "抱歉，AI 服务暂不可用。";
         }
         try {
             conversationService.saveMessage(conversationId, "assistant", content, sources);
@@ -200,5 +224,23 @@ public class ChatController {
         } catch (Exception e) {
             log.error("保存 assistant 消息失败: conv={}, error={}", conversationId, e.getMessage());
         }
+    }
+
+    /** 提交检索质量反馈（点赞/点踩） */
+    @PostMapping("/chat/feedback")
+    public ApiResponse<?> submitFeedback(@RequestBody Map<String, String> body) {
+        String traceId = body.get("trace_id");
+        String rating = body.get("rating");
+        String reason = body.getOrDefault("reason", "");
+
+        if (traceId == null || traceId.isBlank()) {
+            return ApiResponse.error(ErrorCode.INVALID_REQUEST, "trace_id 不能为空");
+        }
+        if (!"like".equals(rating) && !"dislike".equals(rating)) {
+            return ApiResponse.error(ErrorCode.INVALID_REQUEST, "rating 必须为 'like' 或 'dislike'");
+        }
+
+        feedbackService.submitFeedback(traceId, rating, reason);
+        return ApiResponse.success(Map.of("status", "ok"));
     }
 }

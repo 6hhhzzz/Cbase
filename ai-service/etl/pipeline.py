@@ -4,7 +4,7 @@
 每个 Step 只负责一个职责，可以独立测试和替换。
 
 步骤链:
-    DownloadStep → ParseStep → SanitizeStep → ChunkStep → IndexStep
+    DownloadStep → ParseStepV5 → SanitizeStep → ChunkStepV5 → LlmMetadataEnrichStep → EmbedStep → IndexStep
 """
 
 import os

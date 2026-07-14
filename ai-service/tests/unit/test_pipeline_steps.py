@@ -12,12 +12,9 @@ import pytest
 from etl.steps import (
     PipelineStep,
     DownloadStep,
-    ParseStep,
     SanitizeStep,
-    ChunkStep,
     IndexStep,
 )
-from etl.parsers.registry import ParserRegistry
 from etl.sanitizers.presidio_sanitizer import PresidioSanitizer
 from models.document import (
     DocumentIngestMessage,
@@ -65,44 +62,6 @@ def sample_ctx(sample_msg):
 
 
 # ================================================================
-# ParseStep 测试
-# ================================================================
-
-class TestParseStep:
-    """解析步骤测试。"""
-
-    @pytest.mark.asyncio
-    async def test_parse_supported_type(self, sample_ctx, tmp_path):
-        """支持的文件类型应该成功解析。"""
-        # 创建真实的 txt 文件供解析器读取
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("这是文本解析测试文档的内容。\n包含多行文本。" * 20)
-        sample_ctx["temp_path"] = str(test_file)
-        # 将 msg 的 file_type 改为 txt 以匹配实际文件
-        sample_ctx["msg"] = sample_ctx["msg"].model_copy(update={"file_type": "txt"})
-
-        registry = ParserRegistry()
-        step = ParseStep(registry)
-        ctx = await step.execute(sample_ctx)
-        assert "parse_result" in ctx
-        assert "_early_exit" not in ctx
-        assert ctx["parse_result"].file_type == "txt"
-        assert len(ctx["parse_result"].raw_text) > 0
-
-    @pytest.mark.asyncio
-    async def test_parse_unsupported_type(self, sample_ctx):
-        """不支持的文件类型应该设置 early_exit。"""
-        sample_ctx["msg"] = sample_ctx["msg"].model_copy(update={"file_type": "exe"})
-        registry = ParserRegistry()
-        step = ParseStep(registry)
-        ctx = await step.execute(sample_ctx)
-        assert "_early_exit" in ctx
-        callback = ctx["_early_exit"]
-        assert callback.status == IngestStatus.FAILED
-        assert "不支持" in callback.error_message
-
-
-# ================================================================
 # SanitizeStep 测试
 # ================================================================
 
@@ -140,34 +99,6 @@ class TestSanitizeStep:
         ctx = await step.execute(sample_ctx)
         assert ctx["parse_result"].raw_text == original  # 未修改
 
-
-# ================================================================
-# ChunkStep 测试
-# ================================================================
-
-class TestChunkStep:
-    """分块步骤测试。"""
-
-    @pytest.mark.asyncio
-    async def test_chunk_metadata_injection(self, sample_ctx, sample_parse_result):
-        """分块后每个 chunk 应包含权限元数据。"""
-        from etl.chunkers.text_chunker import TextChunker
-        sample_ctx["parse_result"] = sample_parse_result
-        step = ChunkStep(TextChunker())
-        ctx = await step.execute(sample_ctx)
-        assert "chunks" in ctx
-        for chunk in ctx["chunks"]:
-            assert chunk.metadata["kb_id"] == "kb-001"
-            assert "source_file" in chunk.metadata
-
-    @pytest.mark.asyncio
-    async def test_empty_text_produces_no_chunks(self, sample_ctx):
-        """空文本应设置 early_exit。"""
-        from etl.chunkers.text_chunker import TextChunker
-        sample_ctx["parse_result"] = ParseResult(file_type="txt", raw_text="")
-        step = ChunkStep(TextChunker())
-        ctx = await step.execute(sample_ctx)
-        assert "_early_exit" in ctx
 
 
 # ================================================================
@@ -209,3 +140,193 @@ class TestPipelineStepABC:
 
         with pytest.raises(TypeError):
             BadStep()
+
+
+# ================================================================
+# LlmMetadataEnrichStep 测试
+# ================================================================
+
+class TestLlmMetadataEnrichStep:
+    """LLM 增强元数据提取步骤测试。"""
+
+    @pytest.fixture
+    def sample_llm(self):
+        """构造 mock LLM。"""
+        llm = MagicMock()
+        llm.generate_content = AsyncMock()
+        return llm
+
+    @pytest.fixture
+    def ctx_with_title_chunks(self, sample_msg):
+        """构造含 title chunk 的 context。"""
+        chunks = [
+            DocumentChunk(
+                doc_id=sample_msg.doc_id,
+                chunk_index=0,
+                chunk_text="第1章 项目概述",
+                metadata={"chunk_type": "title", "title": "第1章 项目概述"},
+            ),
+            DocumentChunk(
+                doc_id=sample_msg.doc_id,
+                chunk_index=1,
+                chunk_text="这是项目背景介绍。本文档描述了IWMS系统的...",
+                metadata={"chunk_type": "text"},
+            ),
+            DocumentChunk(
+                doc_id=sample_msg.doc_id,
+                chunk_index=2,
+                chunk_text="1.1 技术架构",
+                metadata={"chunk_type": "title", "title": "1.1 技术架构"},
+            ),
+        ]
+        return {"msg": sample_msg, "chunks": chunks}
+
+    @pytest.mark.asyncio
+    async def test_llm_success_applies_results(self, sample_llm, ctx_with_title_chunks):
+        """LLM 成功返回 JSON → metadata 应正确写入。"""
+        from models.llm import LLMResponse
+        sample_llm.generate_content.return_value = LLMResponse(
+            content='{"chunks": ['
+                    '{"index": 0, "level": 1, "heading": "项目概述", "chunk_type": "title", "entities": ["IWMS"]},'
+                    '{"index": 2, "level": 2, "heading": "技术架构", "chunk_type": "title", "entities": []}'
+                    ']}',
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=sample_llm)
+        ctx = await step.execute(ctx_with_title_chunks)
+
+        chunks = ctx["chunks"]
+        # chunk 0 (title): LLM 结果
+        assert chunks[0].metadata["level"] == 1
+        assert chunks[0].metadata["heading"] == "项目概述"
+        assert chunks[0].metadata["entities"] == ["IWMS"]
+        # chunk 1 (text): 不受影响
+        assert "level" not in chunks[1].metadata
+        # chunk 2 (title): LLM 结果
+        assert chunks[2].metadata["level"] == 2
+        assert chunks[2].metadata["heading"] == "技术架构"
+
+    @pytest.mark.asyncio
+    async def test_llm_failure_falls_back_to_rules(self, sample_llm, ctx_with_title_chunks):
+        """LLM 失败 → 静默降级到规则逻辑。"""
+        sample_llm.generate_content.side_effect = Exception("API 超时")
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=sample_llm)
+        ctx = await step.execute(ctx_with_title_chunks)
+
+        chunks = ctx["chunks"]
+        # 降级后 heading 应取 chunk_text 前 80 字符
+        assert "heading" in chunks[0].metadata
+        assert chunks[0].metadata["heading"] == "第1章 项目概述"
+        # 降级后 level 默认 1
+        assert chunks[0].metadata["level"] == 1
+
+    @pytest.mark.asyncio
+    async def test_no_llm_configured_uses_rules(self, ctx_with_title_chunks):
+        """LLM=None → 纯规则模式。"""
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=None)
+        ctx = await step.execute(ctx_with_title_chunks)
+
+        chunks = ctx["chunks"]
+        assert chunks[0].metadata["heading"] == "第1章 项目概述"
+        assert chunks[0].metadata["level"] == 1
+
+    @pytest.mark.asyncio
+    async def test_no_title_chunks_skips_llm(self, sample_llm, sample_msg):
+        """无 title chunk → 不调用 LLM。"""
+        chunks = [
+            DocumentChunk(
+                doc_id=sample_msg.doc_id,
+                chunk_index=0,
+                chunk_text="这是纯正文内容。",
+                metadata={"chunk_type": "text"},
+            ),
+        ]
+        ctx = {"msg": sample_msg, "chunks": chunks}
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=sample_llm)
+        ctx = await step.execute(ctx)
+
+        # LLM 不应被调用
+        sample_llm.generate_content.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_chunks_skips(self, sample_llm, sample_msg):
+        """空 chunks → 跳过。"""
+        ctx = {"msg": sample_msg, "chunks": []}
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=sample_llm)
+        result = await step.execute(ctx)
+
+        assert result is ctx  # 原样返回
+
+    @pytest.mark.asyncio
+    async def test_llm_json_in_code_block(self, sample_llm, ctx_with_title_chunks):
+        """LLM 输出包裹在 ```json 中 → 应正确提取。"""
+        from models.llm import LLMResponse
+        sample_llm.generate_content.return_value = LLMResponse(
+            content='```json\n{"chunks": ['
+                    '{"index": 0, "level": 1, "heading": "项目概述", "chunk_type": "title", "entities": ["IWMS"]},'
+                    '{"index": 2, "level": 2, "heading": "技术架构", "chunk_type": "title", "entities": ["Spring Cloud"]}'
+                    ']}\n```',
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=sample_llm)
+        ctx = await step.execute(ctx_with_title_chunks)
+
+        assert ctx["chunks"][0].metadata["level"] == 1
+        assert ctx["chunks"][2].metadata["entities"] == ["Spring Cloud"]
+
+    @pytest.mark.asyncio
+    async def test_llm_bad_json_falls_back(self, sample_llm, ctx_with_title_chunks):
+        """LLM 返回非法 JSON → 降级到规则。"""
+        from models.llm import LLMResponse
+        sample_llm.generate_content.return_value = LLMResponse(
+            content='not valid json at all',
+            model="test-model",
+            usage={"total_tokens": 50},
+        )
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=sample_llm)
+        ctx = await step.execute(ctx_with_title_chunks)
+
+        # 应降级到规则
+        assert "heading" in ctx["chunks"][0].metadata
+        assert ctx["chunks"][0].metadata["level"] == 1
+
+    @pytest.mark.asyncio
+    async def test_level_from_chunker_is_preserved(self, sample_msg):
+        """ChunkStepV5 修复后 level 由 TitleChunker 传入 → 规则降级使用它。"""
+        chunks = [
+            DocumentChunk(
+                doc_id=sample_msg.doc_id,
+                chunk_index=0,
+                chunk_text="系统架构设计",
+                metadata={
+                    "chunk_type": "title",
+                    "title": "系统架构设计",
+                    # 模拟 TitleChunker 已设置 level=2
+                    "level": 2,
+                },
+            ),
+        ]
+        ctx = {"msg": sample_msg, "chunks": chunks}
+
+        from etl.steps import LlmMetadataEnrichStep
+        step = LlmMetadataEnrichStep(llm=None)
+        ctx = await step.execute(ctx)
+
+        # 规则降级应保留 ChunkStepV5 传入的 level
+        assert ctx["chunks"][0].metadata["level"] == 2
+        assert ctx["chunks"][0].metadata["heading"] == "系统架构设计"

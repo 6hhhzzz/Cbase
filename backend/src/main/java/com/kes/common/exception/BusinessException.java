@@ -31,17 +31,6 @@ public class BusinessException extends RuntimeException {
         this.errorCode = errorCode.name();
     }
 
-    /**
-     * @deprecated 请使用 {@link #BusinessException(ErrorCode)} 或 {@link #BusinessException(ErrorCode, String)}
-     *             本构造器保留用于过渡期兼容，后续版本移除。
-     */
-    @Deprecated
-    public BusinessException(int code, String message) {
-        super(message);
-        this.code = code;
-        this.errorCode = null;
-    }
-
     public int getCode() {
         return code;
     }
@@ -98,9 +87,4 @@ public class BusinessException extends RuntimeException {
         return new BusinessException(ErrorCode.DOC_NOT_FOUND, "无权访问该文档");
     }
 
-    /** @deprecated 请使用 {@code new BusinessException(ErrorCode.SPACE_ACCESS_DENIED, message)} */
-    @Deprecated
-    public static BusinessException forbidden(String message) {
-        return new BusinessException(ErrorCode.SPACE_ACCESS_DENIED, message);
-    }
 }

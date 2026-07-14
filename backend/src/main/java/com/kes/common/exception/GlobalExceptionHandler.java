@@ -24,16 +24,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException e) {
         log.warn("业务异常: error_code={}, message={}", e.getErrorCode(), e.getMessage());
-        // 从 errorCode 获取 HTTP 状态码，兼容旧的 int code（回退到 400）
-        HttpStatus status = e.getErrorCode() != null
-            ? ErrorCode.valueOf(e.getErrorCode()).httpStatus
-            : (e.getCode() == 403 ? HttpStatus.FORBIDDEN
-             : e.getCode() == 401 ? HttpStatus.UNAUTHORIZED
-             : HttpStatus.BAD_REQUEST);
-        return ResponseEntity.status(status)
-            .body(e.getErrorCode() != null
-                ? ApiResponse.error(ErrorCode.valueOf(e.getErrorCode()), e.getMessage())
-                : ApiResponse.error(e.getCode(), e.getMessage()));
+        ErrorCode errorCode = ErrorCode.valueOf(e.getErrorCode());
+        return ResponseEntity.status(errorCode.httpStatus)
+            .body(ApiResponse.error(errorCode, e.getMessage()));
     }
 
     /** 参数校验失败 */

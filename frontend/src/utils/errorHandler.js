@@ -37,23 +37,3 @@ export function handleError(error, fallbackMsg = '操作失败') {
   // 其他错误由拦截器已处理，静默
 }
 
-/**
- * 包装异步操作，自动处理错误。
- * @param {Function} fn - 异步函数
- * @param {string} fallbackMsg - 失败时的默认消息
- */
-export async function withErrorToast(fn, fallbackMsg) {
-  try {
-    return await fn()
-  } catch (e) {
-    handleError(e, fallbackMsg)
-    throw e
-  }
-}
-
-/**
- * 判断是否为用户取消操作。
- */
-export function isUserCancel(error) {
-  return error === 'cancel' || error === 'close' || error?.message?.includes('cancel')
-}

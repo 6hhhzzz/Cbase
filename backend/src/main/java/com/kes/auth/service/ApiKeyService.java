@@ -70,10 +70,9 @@ public class ApiKeyService {
         log.info("API 密钥已创建: userId={}, name={}, prefix={}, scope={}",
             userId, name, keyPrefix, entity.getScopeKbIds());
 
-        String details = "expires_days=" + expiresDays;
-        if (entity.getScopeKbIds() != null) {
-            details += " scope=" + entity.getScopeKbIds();
-        }
+        String details = "{\"expires_days\":" + expiresDays
+            + (entity.getScopeKbIds() != null ? ", \"scope\":" + entity.getScopeKbIds() : "")
+            + "}";
         auditLogger.log(userId, null, "api_key.create", "api_key",
             entity.getId(), name, details);
 
@@ -101,7 +100,7 @@ public class ApiKeyService {
         log.info("API 密钥已重命名: userId={}, {} -> {}", userId, oldName, newName);
 
         auditLogger.log(userId, null, "api_key.rename", "api_key",
-            keyId, newName, "old_name=" + oldName);
+            keyId, newName, "{\"old_name\":\"" + oldName + "\"}");
     }
 
     /** 撤销密钥。已撤销的密钥不可再次撤销。 */
@@ -139,7 +138,9 @@ public class ApiKeyService {
 
         auditLogger.log(userId, null, "api_key.extend", "api_key",
             keyId, key.getName(),
-            "expires_days=" + expiresDays + " old=" + oldExpiry + " new=" + newExpiry);
+            "{\"expires_days\":" + expiresDays
+                + ", \"old\":\"" + oldExpiry + "\""
+                + ", \"new\":\"" + newExpiry + "\"}");
 
         return new ExtendResult(key.getId(), key.getName(), newExpiry);
     }
@@ -165,7 +166,9 @@ public class ApiKeyService {
             userId, key.getName(), oldScope, key.getScopeKbIds());
 
         auditLogger.log(userId, null, "api_key.update_scope", "api_key",
-            keyId, key.getName(), "old=" + oldScope + " new=" + key.getScopeKbIds());
+            keyId, key.getName(),
+            "{\"old\":" + (oldScope != null ? oldScope : "null")
+                + ", \"new\":" + (key.getScopeKbIds() != null ? key.getScopeKbIds() : "null") + "}");
     }
 
     /** 校验 scopeKbIds 必须是用户当前 ACE 权限的子集。 */

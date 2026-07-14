@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 class EmbedStep(PipelineStep):
     """对文档块文本进行向量化，将向量存入 ctx。"""
 
-    def __init__(self, embedding_wrapper: EmbeddingWrapper, batch_size: int = 100):
+    def __init__(self, embedding_wrapper: EmbeddingWrapper, batch_size: int = 10):
         self._embedding = embedding_wrapper
         self._batch_size = batch_size
 

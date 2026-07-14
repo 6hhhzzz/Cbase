@@ -56,23 +56,33 @@ class ChunkStepV5(PipelineStep):
         # 转换为旧 DocumentChunk 格式（兼容 EmbedStep/IndexStep）
         old_chunks = []
         for i, chunk in enumerate(new_chunks):
+            meta = {
+                "kb_id": msg.metadata.kb_id,
+                "source_file": msg.file_path,
+                "effective_date": msg.metadata.effective_date,
+                "expiry_date": msg.metadata.expiry_date,
+                "version": msg.metadata.version,
+                # v5 新增：传 content_with_weight 给 IndexStep
+                "content_with_weight": chunk.content_with_weight,
+                # v5 新增：chunk 类型和标题
+                "chunk_type": chunk.chunk_type,
+                "title": chunk.title,
+                "page_range": chunk.page_range,
+                # v12 parent-child: 两级分块元数据
+                "parent_id": chunk.metadata.get("parent_id"),
+                "parent_content": chunk.metadata.get("parent_content"),
+                "parent_title": chunk.metadata.get("parent_title"),
+                "parent_type": chunk.metadata.get("parent_type"),
+            }
+            # 保留 chunker 产出的额外 metadata（如 TitleChunker 设置的 level）
+            for k, v in chunk.metadata.items():
+                if k not in meta:
+                    meta[k] = v
             old_chunks.append(DocumentChunk(
                 doc_id=msg.doc_id,
                 chunk_index=i,
                 chunk_text=chunk.content,
-                metadata={
-                    "kb_id": msg.metadata.kb_id,
-                    "source_file": msg.file_path,
-                    "effective_date": msg.metadata.effective_date,
-                    "expiry_date": msg.metadata.expiry_date,
-                    "version": msg.metadata.version,
-                    # v5 新增：传 content_with_weight 给 IndexStep
-                    "content_with_weight": chunk.content_with_weight,
-                    # v5 新增：chunk 类型和标题
-                    "chunk_type": chunk.chunk_type,
-                    "title": chunk.title,
-                    "page_range": chunk.page_range,
-                },
+                metadata=meta,
             ))
 
         ctx["chunks"] = old_chunks

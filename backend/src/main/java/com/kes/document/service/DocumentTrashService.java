@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 文档回收站服务 — 软删除、恢复、永久删除。
@@ -95,5 +96,50 @@ public class DocumentTrashService {
             "doc.delete_permanent", "document", docId, filename, "{}"));
 
         log.info("文档永久删除: docId={}, file={}", docId, filename);
+    }
+
+    /** 批量软删除 — Controller 已做权鉴，Service 只做批量操作 */
+    @Transactional
+    public void batchSoftDelete(List<String> docIds) {
+        List<DocumentMeta> metas = docRepo.findAllById(docIds);
+        LocalDateTime now = LocalDateTime.now();
+
+        for (DocumentMeta meta : metas) {
+            meta.setStatus("soft_deleted");
+            meta.setDeletedAt(now);
+            meta.setExpiresAt(now.plusDays(30));
+        }
+        docRepo.saveAll(metas);
+
+        for (DocumentMeta meta : metas) {
+            eventPublisher.publishEvent(new DocumentStatusChangedEvent(
+                meta.getId(), meta.getKbId(), "soft_deleted"));
+            eventPublisher.publishEvent(new AuditLogEvent(meta.getUploadedBy(), meta.getSpaceId(),
+                "doc.trash", "document", meta.getId(), meta.getFilename(), "{}"));
+        }
+
+        log.info("批量软删除完成: count={}", metas.size());
+    }
+
+    /** 批量永久删除 — Controller 已做权鉴，Service 只做批量操作 */
+    @Transactional
+    public void batchPermanentDelete(List<String> docIds) {
+        List<DocumentMeta> metas = docRepo.findAllById(docIds);
+
+        for (DocumentMeta meta : metas) {
+            minioStorage.deleteFile(meta.getFilePath());
+
+            String filename = meta.getFilename();
+            String kbId = meta.getKbId();
+            String spaceId = meta.getSpaceId();
+            String uploadedBy = meta.getUploadedBy();
+
+            eventPublisher.publishEvent(new DocumentPermanentlyDeletedEvent(meta.getId(), kbId));
+            eventPublisher.publishEvent(new AuditLogEvent(uploadedBy, spaceId,
+                "doc.delete_permanent", "document", meta.getId(), filename, "{}"));
+        }
+
+        docRepo.deleteAll(metas);
+        log.info("批量永久删除完成: count={}", metas.size());
     }
 }

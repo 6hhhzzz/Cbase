@@ -1,6 +1,5 @@
 """CitationInserter — 引用插入 + 位置单调约束。
 
-借鉴 RAGFlow 的 insert_citations 思路：
     1. 将 LLM 生成的答案拆为句子
     2. 每句 embedding 与检索 chunks 计算相似度
     3. 超过阈值(0.6)的标注引用

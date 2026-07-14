@@ -25,13 +25,20 @@ public class DocumentQueryService {
         this.docRepo = docRepo;
     }
 
-    /** 查询 KB 下的文档列表 */
-    public Page<DocumentMeta> list(String kbId, String userId, String status, int page, int size) {
+    /** 查询指定 KB 下的文档列表 */
+    public Page<DocumentMeta> listByKb(String kbId, String status, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         if (status != null && !status.isBlank()) {
             return docRepo.findByKbIdAndApprovalStatus(kbId, status, pageRequest);
         }
         return docRepo.findByKbIdAndStatus(kbId, "active", pageRequest);
+    }
+
+    /** 查询指定 Space 下所有 KB 的文档列表 */
+    public Page<DocumentMeta> listBySpace(String spaceId, String status, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        String st = (status != null && !status.isBlank()) ? status : "active";
+        return docRepo.findBySpaceIdAndStatus(spaceId, st, pageRequest);
     }
 
     /** 根据 ID 获取文档，不存在则抛出异常 */

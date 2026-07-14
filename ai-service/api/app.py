@@ -26,6 +26,9 @@ from etl import ETLPipeline
 from etl.sanitizers.presidio_sanitizer import PresidioSanitizer
 from etl.steps import DownloadStep, SanitizeStep, EmbedStep, IndexStep
 from etl.steps import ParseStepV5, ChunkStepV5
+from etl.steps.doc_understand_step import DocUnderstandStep
+from etl.steps.doc_classify_step import DocClassifyStep
+from etl.steps.kb_summary_step import UpdateKBSummaryStep
 from parsing.orchestrator import ParseOrchestrator
 from parsing.registry import ParserRegistry as NewParserRegistry
 from chunking.orchestrator import ChunkOrchestrator
@@ -40,9 +43,12 @@ from retrieval.sparse import SparseRetriever
 from retrieval.fusion import Fusion
 from retrieval.hybrid_search import HybridSearch
 from retrieval.query_rewriter import QueryRewriter
-from retrieval.intent_router import IntentRouter
+from retrieval.query_planner import QueryPlanner
+from retrieval.query_preprocessor import QueryPreprocessor
 from retrieval.citation import CitationInserter
 from retrieval.orchestrator import RetrievalOrchestrator
+from retrieval.feedback import RetrievalTracer
+from retrieval.judge import JudgeEvaluator
 
 from .chat import router as chat_router
 from .documents import router as documents_router
@@ -63,22 +69,38 @@ async def lifespan(app: FastAPI):
     settings = load_settings()
     logger.info(f"配置加载完成: LLM model={settings.llm.model}")
 
-    # ---- v6: 动态模型池（优先从 Java 拉取，降级到 llm.yaml） ----
-    java_url = os.environ.get("KES_JAVA_URL", "http://localhost:8080")
+    # ---- v12: 动态模型池（优先 models.yaml，降级 Java HTTP，兜底 llm.yaml）----
+    java_url = os.environ.get("KES_JAVA_URL", "")
     model_pool = ModelPool(java_base_url=java_url)
+    slm = None  # SLM 可能在 fallback 中未创建
     try:
         await model_pool.initialize()
         llm = model_pool.get_llm("chat")
+        slm = model_pool.get_slm()
+        llm_rewrite = model_pool.get_llm("rewrite")
+        llm_planner = model_pool.get_llm("planner")
         embedding = model_pool.get_embedding()
         logger.info(f"ModelPool 加载成功: chat={llm.get_model_name()}, "
+                     f"slm={slm.get_model_name() if slm else 'N/A'}, "
                      f"embedding_dim={model_pool.embedding_dimension}")
-        asyncio.create_task(model_pool._watch_loop(30))
+        watch_interval = int(os.environ.get("KES_MODEL_WATCH_INTERVAL", "30"))
+        await model_pool.start_watch(watch_interval)
     except Exception as e:
         logger.warning(f"ModelPool 加载失败 ({e})，降级使用 llm.yaml 配置")
         llm = ModelFactory.create_llm(settings.llm)
         embedding = ModelFactory.create_embedding(settings.embedding)
+        # 所有特殊环节降级复用主 LLM
+        from llm.factory import ModelFactory as MF
+        try:
+            slm = MF.create_llm(settings.llm)
+        except Exception:
+            slm = llm
+        llm_rewrite = llm
+        llm_planner = llm
 
-    logger.info(f"LLM 实例: {llm.get_model_name()}, Embedding 维度: {embedding.get_dimension()}")
+    logger.info(f"LLM 实例: {llm.get_model_name()}, "
+                f"SLM 实例: {slm.get_model_name() if slm else 'N/A'}, "
+                f"Embedding 维度: {embedding.get_dimension()}")
 
     # 创建 Embedding 封装（批量拆分 + 重试）
     embedding_wrapper = EmbeddingWrapper(embedding)
@@ -96,11 +118,20 @@ async def lifespan(app: FastAPI):
     await history_manager.initialize()
     logger.info("HistoryManager 初始化完成（仅 Redis）")
 
-    summary_engine = SummaryEngine(llm, history_manager)
+    summary_engine = SummaryEngine(
+        llm, history_manager,
+        soft_limit=settings.summary.soft_limit,
+        compress_target=settings.summary.compress_target,
+        trigger_rounds=settings.summary.trigger_rounds,
+        max_failures=settings.summary.max_failures,
+    )
     context_assembler = ContextAssembler(history_manager)
 
-    # 创建 Reranker（优先 Cross-Encoder，降级 LLM，兜底截断）
-    reranker = create_reranker(llm=llm)
+    # 创建 Reranker（从 models.yaml 配置中心获取: DashScope API → 本地 Cross-Encoder → LLM 降级）
+    reranker = model_pool.get_reranker()
+    if reranker is None:
+        logger.warning("ModelPool 未配置 Reranker，降级使用 create_reranker")
+        reranker = create_reranker(llm=llm)
 
     # ---- v5: 新建混合检索引擎组件 ----
     # SparseRetriever 复用 PGVector 连接池
@@ -108,8 +139,10 @@ async def lifespan(app: FastAPI):
     dense_retriever = DenseRetriever(pgvector_client, embedding)
     fusion = Fusion()
     hybrid_search = HybridSearch(dense_retriever, sparse_retriever, fusion) if sparse_retriever else None
-    query_rewriter = QueryRewriter(llm)
-    intent_router = IntentRouter(llm)
+    # v12: 各环节独立 LLM 注入（前端可分别配置）
+    query_preprocessor = QueryPreprocessor(slm) if slm else None
+    query_rewriter = QueryRewriter(llm_rewrite)
+    query_planner = QueryPlanner(llm_planner)
     citation = CitationInserter(embedding)
     retrieval_orchestrator = RetrievalOrchestrator(
         hybrid_search=hybrid_search,
@@ -117,10 +150,16 @@ async def lifespan(app: FastAPI):
         llm=llm,
         embedding=embedding,
         rewriter=query_rewriter,
-        intent_router=intent_router,
+        query_planner=query_planner,
+        query_preprocessor=query_preprocessor,
         citation=citation,
     ) if hybrid_search else None
     logger.info("v5 混合检索引擎组件已创建" if retrieval_orchestrator else "v5 混合检索未启用（缺少连接池）")
+
+    # ---- v12: 检索质量反馈追踪 + Judge 评估器 ----
+    tracer = RetrievalTracer(pool=pgvector_client.pool) if pgvector_client.pool else None
+    judge = JudgeEvaluator(slm) if slm else None
+    logger.info("检索质量追踪组件已创建" if tracer else "检索质量追踪未启用（缺少连接池）")
 
     # ---- v8: MCP 知识服务组件注入 ----
     if retrieval_orchestrator:
@@ -148,8 +187,11 @@ async def lifespan(app: FastAPI):
         ParseStepV5(parse_orchestrator),
         SanitizeStep(sanitizer, security_level=2),
         ChunkStepV5(chunk_orchestrator),
+        DocUnderstandStep(slm=slm),
+        DocClassifyStep(slm=slm),
         EmbedStep(embedding_wrapper),
         IndexStep(pgvector_client),
+        UpdateKBSummaryStep(),
     ]
     etl_pipeline = ETLPipeline(steps)
 
@@ -174,6 +216,8 @@ async def lifespan(app: FastAPI):
     app.state.context_assembler = context_assembler
     app.state.reranker = reranker
     app.state.retrieval_orchestrator = retrieval_orchestrator
+    app.state.tracer = tracer
+    app.state.judge = judge
     app.state.mq_client = mq_client
     app.state.settings = settings
 
