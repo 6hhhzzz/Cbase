@@ -2,6 +2,8 @@ package com.kes.common.util;
 
 import com.kes.common.exception.BusinessException;
 import com.kes.common.exception.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class ControllerAuthHelper {
 
+    private static final Logger log = LoggerFactory.getLogger(ControllerAuthHelper.class);
+
     private final JwtUtil jwtUtil;
 
     public ControllerAuthHelper(JwtUtil jwtUtil) {
@@ -23,12 +27,17 @@ public class ControllerAuthHelper {
     public String extractUserId(String authHeader) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof String userId) {
+            log.warn("[DIAG] extractUserId via SecurityContext principal={} authClass={}",
+                userId, auth.getClass().getSimpleName());
             return userId;
         }
         String token = jwtUtil.extractBearerToken(authHeader);
         if (token != null && jwtUtil.isTokenValid(token)) {
-            return jwtUtil.extractUserId(token);
+            String uid = jwtUtil.extractUserId(token);
+            log.warn("[DIAG] extractUserId via token uid={} (auth={})", uid, auth);
+            return uid;
         }
+        log.warn("[DIAG] extractUserId NO AUTH (auth={}, token={})", auth, token != null);
         throw new BusinessException(ErrorCode.AUTH_NOT_LOGGED_IN);
     }
 
