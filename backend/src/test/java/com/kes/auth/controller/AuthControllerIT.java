@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Map;
@@ -17,7 +18,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * AuthController 集成测试 — 完整认证链路。
  * 使用真实 PostgreSQL + MockMvc 测试全栈 Spring MVC。
+ *
+ * <p>{@code @Transactional} 隔离每个测试方法（各自事务、结束回滚），
+ * 避免多个测试在共享的单例容器里累积/污染数据（否则 register 的
+ * findFirst 活跃 Space 逻辑会跨测试串味，导致 getSpaces 结果不确定）。
  */
+@Transactional
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class AuthControllerIT extends AbstractIntegrationTest {
 
     @Autowired
