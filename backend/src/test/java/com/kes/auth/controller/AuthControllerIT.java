@@ -46,7 +46,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
                 .content(objectMapper.writeValueAsString(registerBody)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data.userId").isNotEmpty())
+            .andExpect(jsonPath("$.data.id").isNotEmpty())
             .andReturn();
         refreshToken = extractToken(registerRes, "refresh_token");
         spaceId = extractNested(registerRes, "spaces[0].spaceId");

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,11 +39,14 @@ class DocumentServiceIT extends AbstractIntegrationTest {
         DocumentMeta doc = new DocumentMeta();
         doc.setId(docId);
         doc.setKbId(kbId);
+        doc.setSpaceId("space-x");
         doc.setFilename("test-doc.pdf");
         doc.setFileType("pdf");
+        doc.setFileSize(1024L);
         doc.setFilePath("test/test-doc.pdf");
         doc.setStatus("active");
         doc.setApprovalStatus("approved");
+        doc.setDocEffectiveDate(LocalDate.now());
         doc.setUploadedBy("admin");
         docRepo.save(doc);
     }

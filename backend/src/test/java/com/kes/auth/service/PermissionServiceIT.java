@@ -28,6 +28,7 @@ class PermissionServiceIT extends AbstractIntegrationTest {
     @Autowired private UserGroupRepository groupRepo;
     @Autowired private UserGroupMemberRepository groupMemberRepo;
     @Autowired private GroupService groupService;
+    @Autowired private KbPermissionCache permissionCache;
 
     private String spaceId, kbSpaceWideId, kbRestrictedId;
     private User admin, member, outsider;
@@ -101,6 +102,9 @@ class PermissionServiceIT extends AbstractIntegrationTest {
         aceRepo.save(new AccessControlEntry(
             UUID.randomUUID().toString(), spaceId, "kb", kbRestrictedId,
             "user", member.getId(), "admin", "deny", 10));
+
+        // 直接写 repo 绕过了 AceService 的缓存失效，手动 evict 模拟生产的 ACE 变更失效
+        permissionCache.evict(member.getId(), spaceId);
 
         kbIds = permQueryService.resolveAccessibleKbIds(spaceId, member.getId());
         assertFalse(kbIds.contains(kbRestrictedId), "deny 应覆盖 allow，最终拒绝访问");
