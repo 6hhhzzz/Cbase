@@ -56,7 +56,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
             .andExpect(jsonPath("$.data.id").isNotEmpty())
             .andReturn();
         refreshToken = extractToken(registerRes, "refresh_token");
-        spaceId = extractNested(registerRes, "spaces[0].spaceId");
+        spaceId = extractNested(registerRes, "spaces[0].space_id");
 
         // 2. 登录
         var loginBody = Map.of("username", "testuser", "password", "password123");
@@ -83,7 +83,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
                 .header("Authorization", "Bearer " + refreshToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data").isArray())
-            .andExpect(jsonPath("$.data[0].spaceId").isNotEmpty());
+            .andExpect(jsonPath("$.data[0].space_id").isNotEmpty());
 
         // 5. 切换 Space — 签发 context_token
         var switchBody = Map.of("space_id", spaceId);
@@ -144,11 +144,11 @@ class AuthControllerIT extends AbstractIntegrationTest {
     }
 
     private String extractNested(org.springframework.test.web.servlet.MvcResult result, String jsonPath) throws Exception {
-        // Simple support for "spaces[0].spaceId"
+        // Simple support for "spaces[0].space_id"
         var node = objectMapper.readTree(result.getResponse().getContentAsString());
         var data = node.path("data");
         if (data.isArray() && !data.isEmpty()) {
-            return data.get(0).path("spaceId").asText();
+            return data.get(0).path("space_id").asText();
         }
         return "";
     }

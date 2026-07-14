@@ -223,15 +223,12 @@ public class AuthService {
             }
         }
 
-        List<UserInfo.SpaceInfo> diagResult = spaceRoles.entrySet().stream()
+        return spaceRoles.entrySet().stream()
             .map(e -> spaceRepo.findById(e.getKey()).orElse(null))
             .filter(s -> s != null && s.getDeletedAt() == null)  // 过滤已软删除的 Space
             .map(s -> new UserInfo.SpaceInfo(s.getId(), s.getName(),
                 spaceRoles.get(s.getId())))
             .toList();
-        log.warn("[DIAG] getSpaces userId={} adminSpaceIds={} roleKeys={} resultCount={}",
-            userId, adminSpaceIds, spaceRoles.keySet(), diagResult.size());
-        return diagResult;
     }
 
     // ================================================================
