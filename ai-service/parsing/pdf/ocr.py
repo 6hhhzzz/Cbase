@@ -6,16 +6,12 @@
       → TextDetector(det.onnx) → TextRecognizer(rec.onnx) — 降级
 """
 
-import asyncio
 import base64
 import math
-import os
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
 from pathlib import Path
 
 import cv2
-import httpx
 import numpy as np
 
 from common import get_logger
@@ -237,8 +233,6 @@ class TextDetector:
             model_path,
             providers=["CPUExecutionProvider"],
         )
-        # 获取模型输入尺寸
-        input_shape = self._session.get_inputs()[0].shape  # (1, 3, -1, -1)
 
     def detect(self, image: np.ndarray) -> list[list[list[float]]]:
         """检测图片中的文本区域。

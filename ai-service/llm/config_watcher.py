@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import os
 from pathlib import Path
 
 from common import get_logger

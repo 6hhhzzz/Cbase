@@ -3,9 +3,7 @@
 fusion.py 是纯算法，无外部依赖，是"最快产出"的测试目标。
 """
 
-import pytest
 from retrieval.fusion import Fusion
-from retrieval.models import ScoredChunk
 
 
 class TestReciprocalRankFusion:

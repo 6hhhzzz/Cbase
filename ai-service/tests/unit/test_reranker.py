@@ -4,10 +4,9 @@
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from retrieval.reranker import Reranker
-from retrieval.models import ScoredChunk
 
 
 class TestReranker:

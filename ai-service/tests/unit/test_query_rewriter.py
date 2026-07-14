@@ -5,13 +5,11 @@
 
 import json
 import pytest
-from unittest.mock import AsyncMock
 
 from retrieval.query_rewriter import (
     QueryRewriter,
     _parse_rewrite_response,
 )
-from retrieval.models import RewriteResult
 
 
 class TestShouldRewrite:

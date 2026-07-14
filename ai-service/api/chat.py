@@ -31,7 +31,7 @@ from retrieval.trace_context import TraceContext
 from core.context.history_manager import HistoryManager
 from core.context.context_assembler import ContextAssembler
 from core.context.summary_engine import SummaryEngine
-from .chat_errors import ERROR_MESSAGES, get_error_message
+from .chat_errors import get_error_message
 from .dependencies import (
     get_llm, get_embedding_wrapper, get_pgvector_client,
     get_history_manager, get_context_assembler, get_summary_engine,
@@ -50,7 +50,6 @@ async def _save_trace_and_judge(tracer, trace_data: dict, query: str,
         await tracer.save_trace(trace_data)
         if do_judge:
             # 延迟导入避免循环依赖
-            from retrieval.judge import JudgeEvaluator
             # Judge 通过 app.state 获取，这里简单跳过（采样时记录日志）
             logger.debug(f"采样 trace 已落库: {trace_data['trace_id']}，Judge 评估待触发")
     except Exception as e:
@@ -134,7 +133,6 @@ async def chat(
         search_results = []
     elif retrieval_orch is not None:
         # v5 混合检索链路：QueryRewriter → IntentRouter → HybridSearch → Reranker
-        from retrieval.models import RetrievalContext
         ctx = await retrieval_orch.retrieve(  # type: ignore
             query=request.query,
             kb_ids=request.filter_params.kb_ids,

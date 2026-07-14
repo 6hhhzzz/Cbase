@@ -20,7 +20,6 @@ from .reranker import Reranker
 from .query_rewriter import QueryRewriter
 from .intent_router import IntentRouter
 from .citation import CitationInserter
-from .routing import is_chitchat as _is_chitchat
 from .models import RetrievalContext, ScoredChunk, RewriteResult, IntentResult
 
 logger = get_logger(__name__)

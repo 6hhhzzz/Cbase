@@ -59,7 +59,6 @@ class UpdateKBSummaryStep(PipelineStep):
 
     async def _get_pool(self):
         try:
-            from retrieval.vector_store import PGVectorClient
             # 通过 app.state 或全局引用获取 pool
             import api.app as app_mod
             pg = getattr(app_mod, '_pgvector_client', None)

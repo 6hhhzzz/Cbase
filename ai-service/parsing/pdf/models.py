@@ -47,10 +47,6 @@ def ensure_models() -> bool:
         d / "rec.onnx",     # 文本识别 (CRNN)
         d / "ocr.res",      # 字符字典
     ]
-    optional = [
-        d / "layout.onnx",  # 布局识别 (YOLOv10)
-        d / "tsr.onnx",     # 表格结构识别
-    ]
 
     # 检查所有必需文件
     missing_required = [f for f in required if not f.exists()]

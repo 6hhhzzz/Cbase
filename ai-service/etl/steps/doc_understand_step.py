@@ -74,7 +74,8 @@ class DocUnderstandStep(PipelineStep):
             text = response.content if hasattr(response, "content") else str(response)
 
             # 解析 JSON
-            import json, re
+            import json
+            import re
             text = text.strip()
             if text.startswith("```"):
                 text = re.sub(r"^```(?:json)?\s*", "", text)

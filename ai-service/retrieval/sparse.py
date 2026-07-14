@@ -7,7 +7,6 @@
     - GIN 索引：加速全文搜索
 """
 
-import asyncio
 
 import asyncpg
 

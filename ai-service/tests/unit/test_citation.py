@@ -4,7 +4,6 @@
 """
 
 import pytest
-from unittest.mock import MagicMock
 
 from retrieval.citation import (
     _split_sentences,

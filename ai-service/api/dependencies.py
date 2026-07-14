@@ -17,7 +17,7 @@
     async def chat(request: ChatRequest, llm: LLMDep, pgvector: PGVDep):
 """
 
-from fastapi import Depends, Request
+from fastapi import Request
 
 # -- LLM / Embedding --
 from llm.base import BaseLLM, BaseEmbedding

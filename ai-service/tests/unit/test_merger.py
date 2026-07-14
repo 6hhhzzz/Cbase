@@ -3,7 +3,6 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +288,7 @@ class TestTextMergerMerge:
             "sklearn.cluster": mock_sklearn_cluster,
             "sklearn.metrics": mock_sklearn_metrics,
         }):
-            result = merger.merge(boxes, page_num=1)
+            merger.merge(boxes, page_num=1)
 
         # 验证阅读顺序：左列先于右列，每列内按 y 排序
         # 但 mock 中 labels 全是 0 → 所有 box 在同一列

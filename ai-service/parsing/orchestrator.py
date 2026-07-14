@@ -2,7 +2,6 @@
 
 from common import get_logger
 
-from .base import BaseParser
 from .models import ParsedDocument
 from .registry import ParserRegistry
 

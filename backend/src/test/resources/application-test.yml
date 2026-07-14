@@ -7,10 +7,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
-  # 禁用测试中不需要的自动配置
+  # 禁用测试中不需要的自动配置（Redis 由 AbstractIntegrationTest 的 Testcontainer 提供）
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
   data:
     redis:

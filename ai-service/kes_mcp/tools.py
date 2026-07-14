@@ -81,12 +81,12 @@ async def _resolve_effective_kb_ids(auth, tool_kb_ids: list[str] | None) -> list
     """鉴权 + 三层权限交集。返回 None 表示鉴权失败（调用方自行处理错误消息）。"""
     try:
         token = await auth.ensure_token()
-    except KeyAuthError as e:
+    except KeyAuthError:
         return None  # 调用方返回 [{"error": str(e)}]
 
     try:
         ace_kb_ids = await resolve_kb_ids(token, auth.space_id)
-    except Exception as e:
+    except Exception:
         return None  # 调用方返回 [{"error": f"权限查询失败: {e}"}]
 
     return intersect_kb_ids(tool_kb_ids, ace_kb_ids, auth.scope_kb_ids)
@@ -404,7 +404,8 @@ async def submit_document(
         frontmatter += "---\n\n"
         full_content = frontmatter + content
 
-        import tempfile, os
+        import tempfile
+        import os
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
             f.write(full_content)
             tmp_path = f.name

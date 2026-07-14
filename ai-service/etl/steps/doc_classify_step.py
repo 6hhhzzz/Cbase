@@ -8,7 +8,8 @@
 产出: ctx["target_kb_id"] + ctx["kb_action"]（existing | create）
 """
 
-import json, re
+import json
+import re
 
 from common import get_logger
 from llm.base import BaseLLM
@@ -119,7 +120,6 @@ class DocClassifyStep(PipelineStep):
     async def _fetch_kb_list(self, ctx: dict) -> list[dict]:
         """从数据库获取当前 Space 下的 KB 列表。"""
         try:
-            from retrieval.vector_store import PGVectorClient
             # 尝试通过 orchestrator 获取 pgvector pool
             pool = None
             if hasattr(ctx.get("_orchestrator"), "_hybrid_search"):

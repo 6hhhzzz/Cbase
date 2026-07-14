@@ -199,7 +199,8 @@ class CriticAgent:
                 if hasattr(response_wrapper, "content")
                 else str(response_wrapper)
             )
-            import json, re
+            import json
+            import re
             response = response.strip()
             if response.startswith("```"):
                 response = re.sub(r"^```(?:json)?\s*", "", response)
@@ -235,7 +236,8 @@ class CriticAgent:
                 if hasattr(response_wrapper, "content")
                 else str(response_wrapper)
             )
-            import json, re
+            import json
+            import re
             response = response.strip()
             if response.startswith("```"):
                 response = re.sub(r"^```(?:json)?\s*", "", response)

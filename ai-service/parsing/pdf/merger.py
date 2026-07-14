@@ -167,7 +167,7 @@ def _detect_columns(x0_coords: np.ndarray, max_cols: int = 4) -> tuple[int, np.n
             centroids_sorted = centroids[centroids_sorted_idx]
             # 重映射 labels: 原 label → 从左到右的列号 0,1,2...
             label_map = {old: new for new, old in enumerate(centroids_sorted_idx)}
-            remapped_labels = np.array([label_map[l] for l in best_labels])
+            remapped_labels = np.array([label_map[lbl] for lbl in best_labels])
             return best_k, remapped_labels, centroids_sorted
 
         return 1, None, None

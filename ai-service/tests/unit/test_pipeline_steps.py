@@ -2,16 +2,13 @@
 
 每个 Step 使用 mock 依赖独立测试，验证单个 Step 的输入/输出行为。
 """
-import os
-import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
 from etl.steps import (
     PipelineStep,
-    DownloadStep,
     SanitizeStep,
     IndexStep,
 )
@@ -21,8 +18,6 @@ from models.document import (
     DocumentMetadata,
     ParseResult,
     DocumentChunk,
-    IngestCallbackMessage,
-    IngestStatus,
 )
 
 

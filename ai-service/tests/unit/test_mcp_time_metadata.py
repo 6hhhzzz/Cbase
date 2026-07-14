@@ -83,7 +83,7 @@ class TestTimeMetadataFlow:
         self, mock_retrieval_orch, chunks_with_time_meta
     ):
         """验证 search_chunks 返回的每条 chunk 都包含完整时间元数据。"""
-        from kes_mcp.tools import search_chunks, _resolve_effective_kb_ids
+        from kes_mcp.tools import search_chunks
 
         # Mock auth and permission resolution
         mock_auth = MagicMock()

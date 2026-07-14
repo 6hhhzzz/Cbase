@@ -3,9 +3,8 @@
 extract_keywords() 是纯函数，覆盖 jieba 路径和 fallback 路径。
 """
 
-import re
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from retrieval.mcp_query_preparator import (
     extract_keywords,

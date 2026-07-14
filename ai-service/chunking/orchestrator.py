@@ -94,5 +94,5 @@ class ChunkOrchestrator:
 
         # auto: 默认使用 ParentChildChunker（两级分块）
         # TitleChunker 保留给显式 strategy="title"
-        logger.info(f"auto 策略: 使用 ParentChildChunker")
+        logger.info("auto 策略: 使用 ParentChildChunker")
         return self._parent_child_chunker

@@ -182,9 +182,12 @@ class ModelPool:
                 api_reranker=_api_reranker,
             )
             strategies = []
-            if _api_reranker: strategies.append("API")
-            if _cross_encoder: strategies.append("Cross-Encoder")
-            if rerank_llm: strategies.append("LLM")
+            if _api_reranker:
+                strategies.append("API")
+            if _cross_encoder:
+                strategies.append("Cross-Encoder")
+            if rerank_llm:
+                strategies.append("LLM")
             logger.info(f"Reranker 降级链已构建: {' → '.join(strategies)}")
         else:
             # 未配置任何 reranker → 降级纯 LLM Reranker

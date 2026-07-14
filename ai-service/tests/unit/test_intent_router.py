@@ -5,10 +5,8 @@
 """
 
 import pytest
-from unittest.mock import AsyncMock
 
 from retrieval.intent_router import IntentRouter
-from retrieval.models import QueryPlan
 
 
 class TestRuleBasedRouting:

@@ -8,7 +8,7 @@
 
 import random
 
-from .builder import build_trace, _pick_title
+from .builder import build_trace
 from .repository import FeedbackRepository
 from .cache import TraceCache
 
