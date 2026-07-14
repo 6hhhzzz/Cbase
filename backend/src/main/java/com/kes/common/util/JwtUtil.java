@@ -10,6 +10,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * JWT 工具类 — 双 Token 机制（v3 Space/KB RBAC）。
@@ -66,6 +67,7 @@ public class JwtUtil {
 
     public String generateRefreshToken(String userId) {
         return Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(userId)
             .claim("type", "refresh")
             .issuedAt(new Date())
