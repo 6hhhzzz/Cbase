@@ -142,11 +142,12 @@ class AuthControllerIT extends AbstractIntegrationTest {
     }
 
     private String extractNested(org.springframework.test.web.servlet.MvcResult result, String jsonPath) throws Exception {
-        // Simple support for "spaces[0].space_id"
+        // Supports "spaces[0].space_id" — navigates object.spaces[0].space_id
         var node = objectMapper.readTree(result.getResponse().getContentAsString());
         var data = node.path("data");
-        if (data.isArray() && !data.isEmpty()) {
-            return data.get(0).path("space_id").asText();
+        var spaces = data.path("spaces");
+        if (spaces.isArray() && !spaces.isEmpty()) {
+            return spaces.get(0).path("space_id").asText();
         }
         return "";
     }
