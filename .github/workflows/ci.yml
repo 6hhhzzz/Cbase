@@ -41,7 +41,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
       - run: uv run ruff check .
-      - run: uv run pytest --rootdir=. --cov=. --cov-report=term --cov-fail-under=30 tests/
+      - run: uv run pytest --rootdir=. --cov=. --cov-report=term --cov-fail-under=44 tests/
 
   # ---- Frontend ----
   frontend:

@@ -12,6 +12,11 @@ export default defineConfig({
       reporter: ['text', 'lcov', 'html'],
       include: ['src/**/*.{js,vue}'],
       exclude: ['src/main.js'],
+      thresholds: {
+        lines: 5,
+        branches: 20,
+        functions: 3,
+      },
     },
   },
 })
