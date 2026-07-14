@@ -92,7 +92,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.access_token").isNotEmpty())
             .andReturn();
-        contextToken = extractToken(switchRes, "context_token");
+        contextToken = extractToken(switchRes, "access_token");
 
         // 6. 获取可访问 KB 列表
         mvc.perform(get("/api/auth/accessible-kbs")
