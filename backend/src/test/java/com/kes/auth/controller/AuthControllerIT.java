@@ -90,7 +90,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(switchBody)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.context_token").isNotEmpty())
+            .andExpect(jsonPath("$.data.access_token").isNotEmpty())
             .andReturn();
         contextToken = extractToken(switchRes, "context_token");
 
