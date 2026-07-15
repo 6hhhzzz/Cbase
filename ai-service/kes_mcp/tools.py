@@ -351,7 +351,7 @@ async def submit_document(
     auth,
     arguments: dict,
 ) -> list[dict]:
-    """向 KES 提交新文档——仅限 AI 原生 Space。
+    """向 Cbase 提交新文档——仅限 AI 原生 Space。
 
     流程:
       1. 鉴权 → 拿到 context_token + space_id

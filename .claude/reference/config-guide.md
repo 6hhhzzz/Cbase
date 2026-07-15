@@ -67,7 +67,7 @@ Switch providers: change `type` in `config/llm.yaml` + register new implementati
 | `model_assignments` | v6 | 环节→模型映射（chat/rewrite/embedding...） |
 | `system_config` | v6 | 系统级键值配置，`model_config_version` 驱动热重载 |
 | `api_keys` | v8 | MCP API 密钥 — 用户自助管理，scope_kb_ids 预留 |
-| `user_identities` | v9 | 外部身份绑定 — 一个 KES 用户绑定多个 IdP 账号 |
+| `user_identities` | v9 | 外部身份绑定 — 一个 Cbase 用户绑定多个 IdP 账号 |
 | `knowledge_chunks.metadata` | v10 | JSONB — ETL MetadataEnrichStep 产出的结构化元数据（chunk_type/level/heading/page_range），MCP Resource 的权威数据源 |
 | `retrieval_feedback` | v12 | ★ 检索质量全链路追踪 — Python 写入 Trace/Judge 评分，Java 读反馈，7 模块结构（query→retrieval→chunks→generation→judge→feedback→extra） |
 

@@ -142,16 +142,16 @@ def register_tools(server, components):
             return _timeout_error(name)
         except KeyRevokedError as e:
             logger.warning(f"Tool {name}: API 密钥已撤销")
-            return _tool_error(f"API 密钥已撤销，请到 KES 管理界面创建新密钥: {e}")
+            return _tool_error(f"API 密钥已撤销，请到 Cbase 管理界面创建新密钥: {e}")
         except KeyExpiredError as e:
             logger.warning(f"Tool {name}: API 密钥已过期")
-            return _tool_error(f"API 密钥已过期，请到 KES 管理界面续期或创建新密钥: {e}")
+            return _tool_error(f"API 密钥已过期，请到 Cbase 管理界面续期或创建新密钥: {e}")
         except KeyInvalidError as e:
             logger.warning(f"Tool {name}: API 密钥无效")
             return _tool_error(f"API 密钥无效: {e}")
         except KeyConnectionError as e:
             logger.error(f"Tool {name}: 认证服务连接失败")
-            return _tool_error(f"无法连接到 KES 认证服务，请检查网络或 KES 服务状态: {e}")
+            return _tool_error(f"无法连接到 Cbase 认证服务，请检查网络或 KES 服务状态: {e}")
         except KeyAuthError as e:
             logger.error(f"Tool {name}: 鉴权异常")
             return _tool_error(f"鉴权失败: {e}")
@@ -164,7 +164,7 @@ def _search_chunks_schema():
     return {
         "name": "search_chunks",
         "description": (
-            "在 KES 企业知识库中执行 2 路混合检索（语义向量 + BM25 关键词），"
+            "在 Cbase 企业知识库中执行 2 路混合检索（语义向量 + BM25 关键词），"
             "返回相关文档块及完整元数据（来源文档、页码、相关性分数）。\n\n"
             "🔍 适用场景：\n"
             "- Agent 需要获取原始事实片段，自己组合上下文\n"
@@ -279,13 +279,13 @@ def _submit_document_schema():
     return {
         "name": "submit_document",
         "description": (
-            "向 KES 知识库提交一份新文档。仅可在 AI 原生 Space（space_type=ai_native）中使用。\n\n"
+            "向 Cbase 知识库提交一份新文档。仅可在 AI 原生 Space（space_type=ai_native）中使用。\n\n"
             "📝 文档格式要求（Markdown）：\n"
             "1. 必须有标题（# 开头的顶级标题）\n"
             "2. 内容结构化：使用 ##/### 分隔章节，列表用 - 或 1.\n"
             "3. 关键术语使用**加粗**标注\n"
             "4. 如果是修订旧文档，在 content 开头注明「替代: <旧文档标题>」\n\n"
-            "🔍 提交后，KES 内部 Agent 会：\n"
+            "🔍 提交后，Cbase 内部 Agent 会：\n"
             "1. 校验文档格式和内容一致性\n"
             "2. 自动归类到合适的知识库\n"
             "3. 生成文档摘要供后续检索使用\n\n"
@@ -315,7 +315,7 @@ def _submit_document_schema():
                     "type": "string",
                     "description": (
                         "文档摘要（100-200 字，必填）。简要概括文档主题、适用范围和主要内容。\n"
-                        "用于 KES catalog 展示，帮助其他 Agent 判断是否需要检索此文档。"
+                        "用于 Cbase catalog 展示，帮助其他 Agent 判断是否需要检索此文档。"
                     ),
                 },
                 "keywords": {
@@ -331,7 +331,7 @@ def _submit_document_schema():
                 "kb_id": {
                     "type": "string",
                     "description": (
-                        "可选，指定目标知识库 ID。如果不指定，KES 内部 Agent 会自动选择最合适的 KB。\n"
+                        "可选，指定目标知识库 ID。如果不指定，Cbase 内部 Agent 会自动选择最合适的 KB。\n"
                         "可先调用 doc://catalog Resource 获取可用的 KB 列表。"
                     ),
                 },

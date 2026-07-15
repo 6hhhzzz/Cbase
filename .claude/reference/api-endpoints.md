@@ -159,7 +159,7 @@
 | POST | `/v1/admin/models/test` | ★ v6: 连通性测试（供 Java 代理） |
 
 ### MCP 知识服务 ★ v8
-MCP stdio Server — 启动: `KES_API_KEY=xxx KES_SPACE_ID=sp-001 python -m kes_mcp.server`
+MCP stdio Server (Cbase) — 启动: `KES_API_KEY=xxx KES_SPACE_ID=sp-001 python -m kes_mcp.server`
 
 以外部 Agent 为一等公民设计。**核心设计：Agent 先用 Resource 读"知识地图"（entities/structure/time_range），再用 Tool 精确检索——不是盲搜。**
 

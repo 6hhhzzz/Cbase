@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * MCP API 密钥 — 用户自助创建，用于外部 Agent 接入 KES。
+ * MCP API 密钥 — 用户自助创建，用于外部 Agent 接入 Cbase。
  * 权限 = 创建者权限，密钥范围不在创建时固化。
  */
 @Entity

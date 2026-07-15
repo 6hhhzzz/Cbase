@@ -17,7 +17,7 @@ def register_prompts(server, components):
             {
                 "name": "kb_search_strategy",
                 "description": (
-                    "KES 企业知识库检索最佳实践 — 教授外部 Agent 如何从用户问题构造高质量查询、"
+                    "Cbase 企业知识库检索最佳实践 — 教授外部 Agent 如何从用户问题构造高质量查询、"
                     "如何选择合适的 Tool，以及在多 KB 场景下的检索策略。"
                 ),
                 "arguments": [
@@ -29,7 +29,7 @@ def register_prompts(server, components):
                 "name": "qa_template",
                 "description": (
                     "标准 RAG 问答模板 — 基于检索到的文档片段回答问题并标注引用。"
-                    "用于 KES 内部的 LLM 生成阶段，或供外部 Agent 直接使用。"
+                    "用于 Cbase 内部的 LLM 生成阶段，或供外部 Agent 直接使用。"
                 ),
                 "arguments": [
                     {"name": "chunks", "description": "search_chunks 返回的检索文档块", "required": True},
@@ -68,7 +68,7 @@ def _generate_search_strategy(arguments: dict | None):
         "content": {
             "type": "text",
             "text": (
-                "你正在使用一个企业知识库检索系统（KES）。用户的问题是：\n\n"
+                "你正在使用一个企业知识库检索系统（Cbase）。用户的问题是：\n\n"
                 f'"{user_question}"{ctx_block}\n\n'
                 "在调用 KES 的 search_chunks 工具之前，请先读取 Resource 了解知识库概况，"
                 "再构造精确的查询。\n\n"

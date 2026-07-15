@@ -363,9 +363,9 @@ class TestParseResponse:
         """含编号/专有名词的子查询 → hyde=false。"""
         response = json.dumps({
             "complexity": "complex",
-            "rewritten_query": "查询 KES 和 RAGFlow 的区别",
+            "rewritten_query": "查询 Cbase 和 RAGFlow 的区别",
             "sub_queries": [
-                {"id": "q1", "query": "KES-2025-001 配置说明", "depends_on": [],
+                {"id": "q1", "query": "Cbase-2025-001 配置说明", "depends_on": [],
                  "hyde": False, "needs_context": False},
                 {"id": "q2", "query": "RAGFlow 配置说明", "depends_on": [],
                  "hyde": False, "needs_context": False},

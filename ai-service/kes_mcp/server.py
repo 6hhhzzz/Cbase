@@ -1,6 +1,6 @@
 """MCP stdio Server — 对外部 AI Agent 提供权限感知的知识检索。
 
-启动: KES_API_KEY=xxx KES_SPACE_ID=sp-001 python -m kes_mcp.server
+启动: Cbase 使用 KES_API_KEY 环境变量=xxx KES_SPACE_ID=sp-001 python -m kes_mcp.server
 
 架构: 本文件为入口点，Tool/Resource/Prompt 定义和路由分散在独立模块中。
   - tools_def.py     — Tool schema + call_tool 路由

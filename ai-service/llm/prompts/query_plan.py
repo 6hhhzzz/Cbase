@@ -80,7 +80,7 @@ QUERY_PLAN_PROMPT = PromptTemplate("""你是一个查询理解与规划助手。
 - **depends_on**: 依赖的子查询 id 列表。无依赖为空数组[]。
 - **purpose**: 简短说明目的（供最终 LLM 生成时理解此子查询的上下文）
 - **hyde**: 口语化/抽象概念/业务术语 → true；含具体编号/专有名词/版本号 → false
-  示例: "服务网格故障排查流程" → true, "KES-2025-001 配置" → false
+  示例: "服务网格故障排查流程" → true, "Cbase-2025-001 配置" → false
 - **needs_context**: 该子查询的结果依赖前一步检索结果才有意义 → true；仅时间顺序依赖 → false
   **对比/聚合查询必须设 needs_context=true**: "A和B的区别"本身不是一个独立检索，而是基于已检索内容的综合分析。
   正确做法: q1检索A → q2检索B → q3依赖[q1,q2]对比差异(needs_context=true)

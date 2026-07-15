@@ -306,7 +306,7 @@ def generate_html_report(per_batch: list[dict], output_path: Path) -> None:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KES 检索评估报告 — batch eval</title>
+<title>Cbase 检索评估报告 — batch eval</title>
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }}
@@ -350,7 +350,7 @@ tr:hover {{ background: #fafafa; }}
 </head>
 <body>
 <div class="header">
-  <h1>🔍 KES 检索质量评估报告</h1>
+  <h1>🔍 Cbase 检索质量评估报告</h1>
   <p>测试集: qa_testset_ali_handbook.json | 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}</p>
 </div>
 <div class="container">
