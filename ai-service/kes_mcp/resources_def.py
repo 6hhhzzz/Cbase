@@ -112,13 +112,13 @@ async def _read_catalog(components):
 
         # 按 scope_kb_ids 过滤
         if components.auth.scope_kb_ids:
-            kbs = [k for k in kbs if k["kbId"] in components.auth.scope_kb_ids]
+            kbs = [k for k in kbs if k["kb_id"] in components.auth.scope_kb_ids]
 
         # 为每个 KB 生成 kb_summary：聚合该 KB 下所有文档的 topics
         pool = await _get_pool(components)
         catalog = []
         for k in kbs:
-            kb_id = k["kbId"]
+            kb_id = k["kb_id"]
             kb_summary = ""
             if pool:
                 kb_summary = await _build_kb_summary(pool, kb_id)
@@ -129,7 +129,7 @@ async def _read_catalog(components):
                 "description": k.get("description"),
                 "kb_summary": kb_summary,
                 "doc_count": k.get("doc_count", 0),
-                "space_type": k.get("spaceType", "default"),
+                "space_type": k.get("space_type", "default"),
             })
 
         return [{"type": "text", "text": json.dumps(catalog, ensure_ascii=False, indent=2)}]
