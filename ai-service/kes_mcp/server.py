@@ -17,6 +17,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
 from common import get_logger
+from models.config import PGVectorConfig
 from kes_mcp.auth import MCPAuth
 from kes_mcp.rate_limiter import TokenBucket
 from kes_mcp.tools_def import register_tools
@@ -74,12 +75,13 @@ async def main():
     if _components.retrieval_orch is None:
         logger.warning("检索组件未注入，search_chunks 将不可用；尝试 standalone pgpool...")
         try:
+            cfg = PGVectorConfig()
             _components.pg_pool = await asyncpg.create_pool(
-                host="localhost", port=5432,
-                user="kes", password="kes123", database="kes",
+                host=cfg.host, port=cfg.port,
+                user=cfg.user, password=cfg.password, database=cfg.database,
                 min_size=1, max_size=5,
             )
-            logger.info("standalone pgpool 创建成功，KB docs Resource 可用")
+            logger.info(f"standalone pgpool 创建成功 ({cfg.host}:{cfg.port}/{cfg.database})")
         except Exception as e:
             logger.warning(f"standalone pgpool 创建失败: {e}")
 
