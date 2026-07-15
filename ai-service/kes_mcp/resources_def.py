@@ -77,11 +77,15 @@ def register_resources(server, components):
 # ---- Resource 实现 ----
 
 async def _get_pool(components):
+    # 完整检索链（嵌入模式）
     if (components.retrieval_orch
         and components.retrieval_orch._hybrid_search
         and components.retrieval_orch._hybrid_search._dense
         and components.retrieval_orch._hybrid_search._dense._pgvector):
         return components.retrieval_orch._hybrid_search._dense._pgvector.pool
+    # standalone pgpool（MCP 独立模式）
+    if components.pg_pool:
+        return components.pg_pool
     return None
 
 

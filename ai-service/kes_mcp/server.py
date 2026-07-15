@@ -12,6 +12,7 @@
 
 import asyncio
 
+import asyncpg
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
@@ -35,6 +36,7 @@ class MCPComponents:
         self.embedding = None
         self.auth: MCPAuth | None = None
         self.rate_limiter: TokenBucket | None = None
+        self.pg_pool: asyncpg.Pool | None = None  # standalone 模式下的 pg 连接池
 
 
 # ---- 组件引用（由 api/app.py lifespan 注入） ----
@@ -70,14 +72,28 @@ async def main():
             logger.warning("未配置 API Key（KES_API_KEY），将以无权限模式运行")
 
     if _components.retrieval_orch is None:
-        logger.warning("检索组件未注入，search_chunks 将不可用")
+        logger.warning("检索组件未注入，search_chunks 将不可用；尝试 standalone pgpool...")
+        try:
+            _components.pg_pool = await asyncpg.create_pool(
+                host="localhost", port=5432,
+                user="kes", password="kes123", database="kes",
+                min_size=1, max_size=5,
+            )
+            logger.info("standalone pgpool 创建成功，KB docs Resource 可用")
+        except Exception as e:
+            logger.warning(f"standalone pgpool 创建失败: {e}")
 
-    async with stdio_server() as (read_stream, write_stream):
-        await _server.run(
-            read_stream,
-            write_stream,
-            _server.create_initialization_options(),
-        )
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await _server.run(
+                read_stream,
+                write_stream,
+                _server.create_initialization_options(),
+            )
+    finally:
+        if _components.pg_pool:
+            await _components.pg_pool.close()
+            logger.info("standalone pgpool 已关闭")
 
 
 if __name__ == "__main__":
