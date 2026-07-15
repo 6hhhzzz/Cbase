@@ -52,7 +52,8 @@ def register_resources(server, components):
         ]
 
     @server.read_resource()
-    async def handle_read_resource(uri: str):
+    async def handle_read_resource(uri):
+        uri = str(uri)  # MCP SDK passes AnyUrl, convert to str
         if components.rate_limiter:
             allowed, retry_after = await components.rate_limiter.consume()
             if not allowed:
