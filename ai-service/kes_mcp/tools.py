@@ -390,7 +390,7 @@ async def submit_document(
             return [{"error": f"权限查询失败 ({resp.status_code})"}]
 
         kbs = resp.json().get("data", [])
-        space_type = kbs[0].get("spaceType", "default") if kbs else "default"
+        space_type = kbs[0].get("space_type", "default") if kbs else "default"
 
         if space_type != "ai_native":
             return [{"error": f"此 Space 类型为 '{space_type}'，不支持 submit_document。仅 AI 原生 Space (ai_native) 支持此功能。"}]
@@ -412,7 +412,7 @@ async def submit_document(
 
         try:
             # 调 Java 上传 API
-            target_kb = kb_id or (kbs[0].get("kbId") if kbs else None)
+            target_kb = kb_id or (kbs[0].get("kb_id") if kbs else None)
             if not target_kb:
                 os.unlink(tmp_path)
                 return [{"error": "未找到可用的知识库，请先创建 KB 或指定 kb_id"}]
