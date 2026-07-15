@@ -13,6 +13,7 @@ Agent 使用流程:
 import json
 
 import httpx
+from mcp.types import ReadResourceResult, TextResourceContents
 
 from common import get_logger
 from kes_mcp.auth import KeyAuthError, _JAVA_BASE
@@ -59,19 +60,19 @@ def register_resources(server, components):
             if not allowed:
                 logger.warning(f"Resource 被限流: {uri}")
                 wait = max(1, int(retry_after))
-                return _resource_error(
+                return _resource_error(uri,
                     f"调用频率超限（突发容量 30 次，填充速率 1 次/秒），请在 {wait} 秒后重试"
                 )
 
         if uri == "doc://catalog":
-            return await _read_catalog(components)
+            return await _read_catalog(components, uri)
 
         if uri.startswith("doc://kb/") and uri.endswith("/docs"):
             kb_id = uri[len("doc://kb/"):-len("/docs")]
             if kb_id:
-                return await _read_kb_docs(components, kb_id)
+                return await _read_kb_docs(components, uri, kb_id)
 
-        return _resource_error(f"Resource 不存在: {uri}")
+        return _resource_error(uri, f"Resource 不存在")
 
 
 # ---- Resource 实现 ----
@@ -94,11 +95,11 @@ async def _get_auth_token(components) -> str | None:
 
 # ---- doc://catalog ----
 
-async def _read_catalog(components):
+async def _read_catalog(components, uri: str):
     """KB 列表 + kb_summary。"""
     token = await _get_auth_token(components)
     if not token:
-        return _resource_error("鉴权失败")
+        return _resource_error(uri, "鉴权失败")
 
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
@@ -106,7 +107,7 @@ async def _read_catalog(components):
             headers={"Authorization": f"Bearer {token}"},
         )
         if resp.status_code != 200:
-            return _resource_error(f"权限查询失败 ({resp.status_code})")
+            return _resource_error(uri, f"权限查询失败 ({resp.status_code})")
 
         kbs = resp.json().get("data", [])
 
@@ -132,7 +133,13 @@ async def _read_catalog(components):
                 "space_type": k.get("space_type", "default"),
             })
 
-        return [{"type": "text", "text": json.dumps(catalog, ensure_ascii=False, indent=2)}]
+        return ReadResourceResult(
+            contents=[TextResourceContents(
+                uri=uri,
+                text=json.dumps(catalog, ensure_ascii=False, indent=2),
+                mimeType="application/json",
+            )]
+        )
 
 
 async def _build_kb_summary(pool, kb_id: str) -> str:
@@ -182,11 +189,11 @@ async def _build_kb_summary(pool, kb_id: str) -> str:
 
 # ---- doc://kb/{kb_id}/docs ----
 
-async def _read_kb_docs(components, kb_id: str):
+async def _read_kb_docs(components, uri: str, kb_id: str):
     """KB 内文档列表概览。"""
     pool = await _get_pool(components)
     if not pool:
-        return _resource_error("检索组件未初始化")
+        return _resource_error(uri, "检索组件未初始化")
 
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
@@ -207,7 +214,7 @@ async def _read_kb_docs(components, kb_id: str):
         """, kb_id)
 
     if not rows:
-        return _resource_error("该 KB 无文档数据")
+        return _resource_error(uri, "该 KB 无文档数据")
 
     from datetime import date
     today = date.today()
@@ -242,11 +249,17 @@ async def _read_kb_docs(components, kb_id: str):
             "version": r["doc_version"],
         })
 
-    return [{"type": "text", "text": json.dumps({
-        "kb_id": kb_id,
-        "document_count": len(docs),
-        "documents": docs,
-    }, ensure_ascii=False, indent=2)}]
+    return ReadResourceResult(
+        contents=[TextResourceContents(
+            uri=uri,
+            text=json.dumps({
+                "kb_id": kb_id,
+                "document_count": len(docs),
+                "documents": docs,
+            }, ensure_ascii=False, indent=2),
+            mimeType="application/json",
+        )]
+    )
 
 
 def _doc_title(doc_file: str) -> str:
@@ -261,8 +274,11 @@ def _doc_title(doc_file: str) -> str:
     return name[:100]
 
 
-def _resource_error(message: str) -> dict:
-    return {
-        "content": [{"type": "text", "text": json.dumps({"error": message}, ensure_ascii=False)}],
-        "isError": True,
-    }
+def _resource_error(uri: str, message: str) -> ReadResourceResult:
+    return ReadResourceResult(
+        contents=[TextResourceContents(
+            uri=uri,
+            text=json.dumps({"error": message}, ensure_ascii=False),
+            mimeType="application/json",
+        )]
+    )
